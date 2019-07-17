@@ -12,14 +12,6 @@ using TMPro;
 namespace QuestAppLauncher
 {
     /// <summary>
-    /// Usage: demonstrate how to use overlay layers for a paneled UI system
-    /// On Mobile, we support both Cylinder layer and Quad layer
-    /// Press any button: it will cycle  [world geometry Quad]->[overlay layer Quad]->[world geometry cylinder]->[overlay layer cylinder]
-    /// On PC, only Quad layer is supported
-    /// Press any button: it will cycle  [world geometry Quad]->[overlay layer Quad]
-    /// 
-    /// You should be able to observe sharper and less aliased image when switch from world geometry to overlay layer.
-    /// 
     /// </summary>
     public class GridPopulation : MonoBehaviour
     {
