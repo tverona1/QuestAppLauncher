@@ -1,0 +1,8 @@
+{
+    "name": "Oculus.VR",
+    "references": [],
+    "optionalUnityReferences": [],
+    "includePlatforms": [],
+    "excludePlatforms": [],
+    "allowUnsafeCode": false
+}

@@ -1,0 +1,12 @@
+{
+    "name": "Oculus.VR.Editor",
+    "references": [
+        "Oculus.VR"
+    ],
+    "optionalUnityReferences": [],
+    "includePlatforms": [
+        "Editor"
+    ],
+    "excludePlatforms": [],
+    "allowUnsafeCode": false
+}
