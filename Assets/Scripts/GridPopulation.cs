@@ -18,6 +18,9 @@ namespace QuestAppLauncher
         // File name of app name overrides
         const string AppNameOverrideFile = "appnames.txt";
 
+        // File name of excluded package names
+        const string ExcludedPackagesFile = "excludedpackages.txt";
+
         // Extension search for icon overrides
         const string IconOverrideExtSearch = "*.jpg";
 
@@ -96,13 +99,29 @@ namespace QuestAppLauncher
             {
                 // Dictionary to hold package name -> app index, app name
                 var packageNameToAppName = new Dictionary<string, (int Index, string AppName)>();
+                var excludedPackageNames = new HashSet<string>();
 
                 // Get # of installed apps
                 int numApps = currentActivity.Call<int>("getSize");
                 Debug.Log("# installed apps: " + numApps);
 
-                // Get current package name (to filter this out))
-                var currentPackageName = currentActivity.Call<string>("getPackageName");
+                // Add current package name to excludedPackageNames to filter it out
+                excludedPackageNames.Add(currentActivity.Call<string>("getPackageName"));
+
+                //This is a file containing packageNames that will be excluded
+                var excludedPackageNamesFilePath = Path.Combine(persistentDataPath, ExcludedPackagesFile);
+                if (File.Exists(excludedPackageNamesFilePath))
+                {
+                    Debug.Log("Found file: " + excludedPackageNamesFilePath);
+                    string[] excludedPackages = File.ReadAllLines(excludedPackageNamesFilePath);
+                    foreach (string excludedPackage in excludedPackages)
+                    {
+                        if (!string.IsNullOrEmpty(excludedPackage))
+                        {
+                            excludedPackageNames.Add(excludedPackage);
+                        }
+                    }
+                }
 
                 // Get installed package and app names
                 for (int i = 0; i < numApps; i++)
@@ -110,11 +129,13 @@ namespace QuestAppLauncher
                     var packageName = currentActivity.Call<string>("getPackageName", i);
                     var appName = currentActivity.Call<string>("getAppName", i);
 
-                    if (packageName.Equals(currentPackageName))
+                    if (excludedPackageNames.Contains(packageName))
                     {
-                        // Skip current package
+                        Debug.Log("Skipping [" + i + "] package: " + packageName + ", name: " + appName);
+                        // Skip exluded package
                         continue;
                     }
+
 
                     packageNameToAppName.Add(packageName, (i, appName));
                     Debug.Log("[" + i + "] package: " + packageName + ", name: " + appName);
