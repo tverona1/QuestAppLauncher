@@ -38,7 +38,7 @@ RenderSettings:
   m_ReflectionIntensity: 1
   m_CustomReflection: {fileID: 0}
   m_Sun: {fileID: 0}
-  m_IndirectSpecularColor: {r: 0.017265085, g: 0.037189834, b: 0.03553985, a: 1}
+  m_IndirectSpecularColor: {r: 0.017265823, g: 0.037191074, b: 0.035541035, a: 1}
   m_UseRadianceAmbientProbe: 0
 --- !u!157 &3
 LightmapSettings:
@@ -1033,7 +1033,7 @@ MonoBehaviour:
   m_EditorClassIdentifier: 
   trackingSpace: {fileID: 881994610}
   primaryButton: 8192
-  secondaryButton: 1024
+  secondaryButton: 10
   excludeLayers:
     serializedVersion: 2
     m_Bits: 0
@@ -1093,7 +1093,18 @@ MonoBehaviour:
       Version=0.0.0.0, Culture=neutral, PublicKeyToken=null
   onSecondarySelect:
     m_PersistentCalls:
-      m_Calls: []
+      m_Calls:
+      - m_Target: {fileID: 1113839883}
+        m_MethodName: OnSelectedPressedBorY
+        m_Mode: 0
+        m_Arguments:
+          m_ObjectArgument: {fileID: 0}
+          m_ObjectArgumentAssemblyTypeName: UnityEngine.Object, UnityEngine
+          m_IntArgument: 0
+          m_FloatArgument: 0
+          m_StringArgument: 
+          m_BoolArgument: 0
+        m_CallState: 2
     m_TypeName: ControllerSelection.OVRRawRaycaster+SelectionCallback, Assembly-CSharp,
       Version=0.0.0.0, Culture=neutral, PublicKeyToken=null
   activeController: 0

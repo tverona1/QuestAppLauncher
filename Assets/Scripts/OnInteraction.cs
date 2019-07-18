@@ -41,6 +41,17 @@ public class OnInteraction : MonoBehaviour
         }
     }
 
+    public void OnSelectedPressedBorY(Transform t)
+    {
+        var appEntry = t.gameObject.GetComponent("AppEntry") as AppEntry;
+        if (null != appEntry)
+        {
+            // Launch app
+            Debug.Log("Hiding: " + appEntry.appName + " (package id: " + appEntry.packageId + ")");
+            QuestAppLauncher.GridPopulation.AddAppToExcludedFile(appEntry.packageId);
+        }
+    }
+
     void EnableBorder(Transform t, bool enable)
     {
         var border = t.Find("Border");

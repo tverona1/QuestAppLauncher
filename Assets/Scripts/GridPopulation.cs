@@ -8,6 +8,7 @@ using UnityEngine.XR;
 using System;
 using Oculus.Platform;
 using TMPro;
+using UnityEngine.SceneManagement;
 
 namespace QuestAppLauncher
 {
@@ -52,7 +53,7 @@ namespace QuestAppLauncher
         #region Private Functions
         
         /// <summary>
-        /// Static method for lauching an Android app
+        /// Static method for launching an Android app
         /// </summary>
         /// <param name="packageId"></param>
         static public void LaunchApp(string packageId)
@@ -83,6 +84,26 @@ namespace QuestAppLauncher
                     }
                 }
             }
+        }
+
+        /// <summary>
+        /// Static method to add a package name to the excludedFile
+        /// </summary>
+        /// <param name="packageName"></param>
+        static public void AddAppToExcludedFile(string packageName)
+        {
+            var persistentDataPath = UnityEngine.Application.persistentDataPath;
+            Debug.Log("Persistent data path: " + persistentDataPath);
+
+            var excludedPackageNamesFilePath = Path.Combine(persistentDataPath, ExcludedPackagesFile);
+
+            using (StreamWriter writer = File.AppendText(excludedPackageNamesFilePath))
+            {
+                writer.WriteLine(packageName);
+                Debug.Log($"Added package {packageName} to the excluded file {excludedPackageNamesFilePath}");
+            }
+
+            SceneManager.LoadScene(SceneManager.GetActiveScene().buildIndex);
         }
 
         /// <summary>
