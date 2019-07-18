@@ -93,8 +93,6 @@ namespace QuestAppLauncher
         static public void AddAppToExcludedFile(string packageName)
         {
             var persistentDataPath = UnityEngine.Application.persistentDataPath;
-            Debug.Log("Persistent data path: " + persistentDataPath);
-
             var excludedPackageNamesFilePath = Path.Combine(persistentDataPath, ExcludedPackagesFile);
 
             using (StreamWriter writer = File.AppendText(excludedPackageNamesFilePath))
@@ -102,6 +100,19 @@ namespace QuestAppLauncher
                 writer.WriteLine(packageName);
                 Debug.Log($"Added package {packageName} to the excluded file {excludedPackageNamesFilePath}");
             }
+        }
+
+        /// <summary>
+        /// Static method to delete the excludedFile
+        /// </summary>
+        /// <param name="packageName"></param>
+        static public void DeleteExcludedApksFile()
+        {
+            var persistentDataPath = UnityEngine.Application.persistentDataPath;
+            var excludedPackageNamesFilePath = Path.Combine(persistentDataPath, ExcludedPackagesFile);
+
+            if (File.Exists(excludedPackageNamesFilePath))
+                File.Delete(excludedPackageNamesFilePath);
 
             SceneManager.LoadScene(SceneManager.GetActiveScene().buildIndex);
         }
