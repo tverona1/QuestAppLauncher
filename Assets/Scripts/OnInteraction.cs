@@ -46,9 +46,12 @@ public class OnInteraction : MonoBehaviour
         var appEntry = t.gameObject.GetComponent("AppEntry") as AppEntry;
         if (null != appEntry)
         {
-            // Launch app
+            // Add package name to excluded file
             Debug.Log("Hiding: " + appEntry.appName + " (package id: " + appEntry.packageId + ")");
             QuestAppLauncher.GridPopulation.AddAppToExcludedFile(appEntry.packageId);
+
+            // Remove ourselves from the gridview
+            Destroy(t.gameObject);
         }
     }
 
