@@ -25,7 +25,7 @@ The app can be customized by creating a **config.json** file and copying it to t
 
 The following options are supported:  
 ### Setting Grid Size
-The default grid size is 3x3 cells. The grid size can be customer by specifying grid rows and columns as in the following example:
+The default grid size is 3x3 cells. The grid size can be customized by specifying grid rows and columns as in the following example:
 
 ```
 {
