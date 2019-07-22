@@ -25,11 +25,20 @@ namespace QuestAppLauncher
         // Extension search for icon overrides
         const string IconOverrideExtSearch = "*.jpg";
 
+        // Canvas game object
+        public GameObject canvas;
+
+        // Scroll view game object
+        public GameObject scrollView;
+
         // Grid content game object
         public GameObject gridContent;
 
         // App info GameObject (a cell in the grid content)
         public GameObject prefab;
+
+        // Configuration
+        private Config config = new Config();
 
         #region MonoBehaviour handler
 
@@ -40,6 +49,9 @@ namespace QuestAppLauncher
 
             // Initialize the core platform
             Core.AsyncInitialize();
+
+            // Load configuration
+            StartCoroutine(ProcessConfig());
 
             // Populate the grid
             StartCoroutine(Populate());
@@ -115,6 +127,65 @@ namespace QuestAppLauncher
                 File.Delete(excludedPackageNamesFilePath);
 
             SceneManager.LoadScene(SceneManager.GetActiveScene().buildIndex);
+        }
+
+        /// <summary>
+        /// Loads & processes config
+        /// </summary>
+        /// <returns></returns>
+        IEnumerator ProcessConfig()
+        {
+            // Load config
+            ConfigPersistence.LoadConfig(this.config);
+
+            ProcessGridSize();
+
+            yield return null;
+        }
+
+        private void ProcessGridSize()
+        {
+            // Make sure grid size have sane value
+            if (0 == this.config.gridSize.cols && 0 == this.config.gridSize.rows)
+            {
+                // If not initialized, default to 3x3
+                this.config.gridSize.cols = 3;
+                this.config.gridSize.rows = 3;
+            }
+            this.config.gridSize.cols = Math.Min(this.config.gridSize.cols, 10);
+            this.config.gridSize.cols = Math.Max(this.config.gridSize.cols, 1);
+            this.config.gridSize.rows = Math.Min(this.config.gridSize.rows, 50);
+            this.config.gridSize.rows = Math.Max(this.config.gridSize.rows, 1);
+
+            // Get cell size, spacing & padding from the grid layout
+            var gridLayoutGroup = this.gridContent.GetComponent<GridLayoutGroup>();
+            var cellHeight = gridLayoutGroup.cellSize.y;
+            var cellWidth = gridLayoutGroup.cellSize.x;
+            var paddingX = gridLayoutGroup.padding.horizontal;
+            var paddingY = gridLayoutGroup.padding.vertical;
+            var spaceX = gridLayoutGroup.spacing.x;
+            var spaceY = gridLayoutGroup.spacing.y;
+
+            // Width = horizontal padding + # cols * cell width + (# cols - 1) * horizontal spacing
+            var width = paddingX + this.config.gridSize.cols * cellWidth + (this.config.gridSize.cols - 1) * spaceX;
+
+            // Height = vertical padding + # rows * cell height + (# rows - 1) * veritcal spacing + a bit more to show there are more elements
+            var height = paddingY + this.config.gridSize.rows * cellHeight + (this.config.gridSize.rows - 1) * spaceY + 120;
+
+            Debug.Log(string.Format("Setting grid size to {0} x {1} cells", this.config.gridSize.cols, this.config.gridSize.rows));
+            Debug.Log(string.Format("Grid size calculated width x height: {0} x {1}", width, height));
+
+            // Adjust canvas rect transform
+            var canvasRectTransform = this.canvas.GetComponent<RectTransform>();
+            canvasRectTransform.sizeDelta = new Vector2(width, height);
+
+            // Adjust scroll view rect transform
+            var scrollViewRectTransform = this.scrollView.GetComponent<RectTransform>();
+            scrollViewRectTransform.sizeDelta = new Vector2(width, height);
+            
+            // Adjust scroll view box collider
+            var scrollViewBoxCollider = this.scrollView.GetComponent<BoxCollider>();
+            scrollViewBoxCollider.size = new Vector3(width, height, 0);
         }
 
         /// <summary>
