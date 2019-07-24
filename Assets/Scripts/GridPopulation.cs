@@ -28,6 +28,9 @@ namespace QuestAppLauncher
         // Canvas game object
         public GameObject canvas;
 
+        // Scroll view game object
+        public GameObject scrollView;
+
         // Grid content game object
         public GameObject gridContent;
 
@@ -175,6 +178,14 @@ namespace QuestAppLauncher
             // Adjust canvas rect transform
             var canvasRectTransform = this.canvas.GetComponent<RectTransform>();
             canvasRectTransform.sizeDelta = new Vector2(width, height);
+
+            // Adjust scroll view rect transform
+            var scrollViewRectTransform = this.scrollView.GetComponent<RectTransform>();
+            scrollViewRectTransform.sizeDelta = new Vector2(width, height);
+            
+            // Adjust scroll view box collider
+            var scrollViewBoxCollider = this.scrollView.GetComponent<BoxCollider>();
+            scrollViewBoxCollider.size = new Vector3(width, height, 0);
         }
 
         /// <summary>
@@ -319,7 +330,6 @@ namespace QuestAppLauncher
                     var texture = new Texture2D(2, 2, TextureFormat.RGB24, false);
                     texture.filterMode = FilterMode.Trilinear;
                     texture.anisoLevel = 16;
-                    //texture.Resize(144, 100, TextureFormat.RGB24, false);
                     texture.LoadImage(bytesIcon);
                     var rect = new Rect(0, 0, texture.width, texture.height);
                     image.sprite = Sprite.Create(texture, rect, new Vector2(0.5f, 0.5f));

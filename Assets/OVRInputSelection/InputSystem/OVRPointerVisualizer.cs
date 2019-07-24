@@ -36,6 +36,8 @@ namespace ControllerSelection {
         public float rayDrawDistance = 500;
         [Tooltip("How far away the gaze pointer should be from the camera.")]
         public float gazeDrawDistance = 3;
+        [Tooltip("Show gaze pointer as ray pointer.")]
+        public bool showRayPointer = true;
 
         [HideInInspector]
         public OVRInput.Controller activeController = OVRInput.Controller.None;
@@ -63,13 +65,20 @@ namespace ControllerSelection {
         }
 
         public void SetPointer(Ray ray) {
+            float hitRayDrawDistance = rayDrawDistance;
+            RaycastHit hit;
+            if (Physics.Raycast(ray, out hit))
+            {
+                hitRayDrawDistance = hit.distance;
+            }
+
             if (linePointer != null) {
                 linePointer.SetPosition(0, ray.origin);
-                linePointer.SetPosition(1, ray.origin + ray.direction * rayDrawDistance);
+                linePointer.SetPosition(1, ray.origin + ray.direction * hitRayDrawDistance);
             }
 
             if (gazePointer != null) {
-                gazePointer.position = ray.origin + ray.direction * gazeDrawDistance;
+                gazePointer.position = ray.origin + ray.direction * (showRayPointer ? hitRayDrawDistance : gazeDrawDistance);
             }
         }
 
@@ -79,7 +88,7 @@ namespace ControllerSelection {
                     linePointer.enabled = true;
                 }
                 if (gazePointer != null) {
-                    gazePointer.gameObject.SetActive(false);
+                    gazePointer.gameObject.SetActive(showRayPointer ? true : false);
                 }
             }
             else {
@@ -87,7 +96,7 @@ namespace ControllerSelection {
                     linePointer.enabled = false;
                 }
                 if (gazePointer != null) {
-                    gazePointer.gameObject.SetActive(true);
+                    gazePointer.gameObject.SetActive(showRayPointer ? false : true);
                 }
             }
         }
