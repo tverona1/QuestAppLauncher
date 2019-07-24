@@ -18,8 +18,8 @@ namespace QuestAppLauncher
         [Serializable]
         public class GridSize
         {
-            public int rows;
-            public int cols;
+            public int rows = 3;
+            public int cols = 3;
         }
 
         public GridSize gridSize;

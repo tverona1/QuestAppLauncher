@@ -146,12 +146,6 @@ namespace QuestAppLauncher
         private void ProcessGridSize()
         {
             // Make sure grid size have sane value
-            if (0 == this.config.gridSize.cols && 0 == this.config.gridSize.rows)
-            {
-                // If not initialized, default to 3x3
-                this.config.gridSize.cols = 3;
-                this.config.gridSize.rows = 3;
-            }
             this.config.gridSize.cols = Math.Min(this.config.gridSize.cols, 10);
             this.config.gridSize.cols = Math.Max(this.config.gridSize.cols, 1);
             this.config.gridSize.rows = Math.Min(this.config.gridSize.rows, 50);
