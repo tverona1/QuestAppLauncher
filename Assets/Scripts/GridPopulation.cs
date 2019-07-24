@@ -28,9 +28,6 @@ namespace QuestAppLauncher
         // Canvas game object
         public GameObject canvas;
 
-        // Scroll view game object
-        public GameObject scrollView;
-
         // Grid content game object
         public GameObject gridContent;
 
@@ -178,14 +175,6 @@ namespace QuestAppLauncher
             // Adjust canvas rect transform
             var canvasRectTransform = this.canvas.GetComponent<RectTransform>();
             canvasRectTransform.sizeDelta = new Vector2(width, height);
-
-            // Adjust scroll view rect transform
-            var scrollViewRectTransform = this.scrollView.GetComponent<RectTransform>();
-            scrollViewRectTransform.sizeDelta = new Vector2(width, height);
-            
-            // Adjust scroll view box collider
-            var scrollViewBoxCollider = this.scrollView.GetComponent<BoxCollider>();
-            scrollViewBoxCollider.size = new Vector3(width, height, 0);
         }
 
         /// <summary>
