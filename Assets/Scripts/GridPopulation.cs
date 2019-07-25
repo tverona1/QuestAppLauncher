@@ -25,8 +25,8 @@ namespace QuestAppLauncher
         // Extension search for icon overrides
         const string IconOverrideExtSearch = "*.jpg";
 
-        // Canvas game object
-        public GameObject canvas;
+        // Grid container game object
+        public GameObject gridContainer;
 
         // Scroll view game object
         public GameObject scrollView;
@@ -36,9 +36,6 @@ namespace QuestAppLauncher
 
         // App info GameObject (a cell in the grid content)
         public GameObject prefab;
-
-        // Configuration
-        private Config config = new Config();
 
         #region MonoBehaviour handler
 
@@ -50,7 +47,7 @@ namespace QuestAppLauncher
             // Initialize the core platform
             Core.AsyncInitialize();
 
-            // Load configuration
+            // Process configuration
             StartCoroutine(ProcessConfig());
 
             // Populate the grid
@@ -135,21 +132,21 @@ namespace QuestAppLauncher
         /// <returns></returns>
         IEnumerator ProcessConfig()
         {
-            // Load config
-            ConfigPersistence.LoadConfig(this.config);
-
-            ProcessGridSize();
+            // Load configuration
+            Config config = new Config();
+            ConfigPersistence.LoadConfig(config);
+            SetGridSize(config.gridSize.rows, config.gridSize.cols);
 
             yield return null;
         }
 
-        private void ProcessGridSize()
+        public void SetGridSize(int rows, int cols)
         {
             // Make sure grid size have sane value
-            this.config.gridSize.cols = Math.Min(this.config.gridSize.cols, 10);
-            this.config.gridSize.cols = Math.Max(this.config.gridSize.cols, 1);
-            this.config.gridSize.rows = Math.Min(this.config.gridSize.rows, 50);
-            this.config.gridSize.rows = Math.Max(this.config.gridSize.rows, 1);
+            cols = Math.Min(cols, 10);
+            cols = Math.Max(cols, 1);
+            rows = Math.Min(rows, 10);
+            rows = Math.Max(rows, 1);
 
             // Get cell size, spacing & padding from the grid layout
             var gridLayoutGroup = this.gridContent.GetComponent<GridLayoutGroup>();
@@ -161,17 +158,24 @@ namespace QuestAppLauncher
             var spaceY = gridLayoutGroup.spacing.y;
 
             // Width = horizontal padding + # cols * cell width + (# cols - 1) * horizontal spacing
-            var width = paddingX + this.config.gridSize.cols * cellWidth + (this.config.gridSize.cols - 1) * spaceX;
+            var width = paddingX + cols * cellWidth + (cols - 1) * spaceX;
 
             // Height = vertical padding + # rows * cell height + (# rows - 1) * veritcal spacing + a bit more to show there are more elements
-            var height = paddingY + this.config.gridSize.rows * cellHeight + (this.config.gridSize.rows - 1) * spaceY + 120;
+            var height = paddingY + rows * cellHeight + (rows - 1) * spaceY + 120;
 
-            Debug.Log(string.Format("Setting grid size to {0} x {1} cells", this.config.gridSize.cols, this.config.gridSize.rows));
+            Debug.Log(string.Format("Setting grid size to {0} x {1} cells", cols, rows));
             Debug.Log(string.Format("Grid size calculated width x height: {0} x {1}", width, height));
 
-            // Adjust canvas rect transform
-            var canvasRectTransform = this.canvas.GetComponent<RectTransform>();
-            canvasRectTransform.sizeDelta = new Vector2(width, height);
+            // Adjust grid container rect transform
+            var gridTransform = this.gridContainer.GetComponent<RectTransform>();
+            gridTransform.sizeDelta = new Vector2(width, height);
+
+            // Adjust grid container Y position to maintain constant height.
+            // TODO: Figure out a way to adjust UI to avoid this calculation in code
+            var gridPosition = new Vector3(gridTransform.anchoredPosition3D.x,
+                (float)((gridTransform.rect.height - 2000) / 2.0),
+                gridTransform.anchoredPosition3D.z);
+            gridTransform.anchoredPosition3D = gridPosition;
 
             // Adjust scroll view rect transform
             var scrollViewRectTransform = this.scrollView.GetComponent<RectTransform>();
@@ -205,7 +209,7 @@ namespace QuestAppLauncher
                 // Add current package name to excludedPackageNames to filter it out
                 excludedPackageNames.Add(currentActivity.Call<string>("getPackageName"));
 
-                //This is a file containing packageNames that will be excluded
+                // This is a file containing packageNames that will be excluded
                 var excludedPackageNamesFilePath = Path.Combine(persistentDataPath, ExcludedPackagesFile);
                 if (File.Exists(excludedPackageNamesFilePath))
                 {
@@ -233,12 +237,10 @@ namespace QuestAppLauncher
                         continue;
                     }
 
-
                     packageNameToAppName.Add(packageName, (i, appName));
                     Debug.Log("[" + i + "] package: " + packageName + ", name: " + appName);
+                    yield return null;
                 }
-
-                yield return null;
 
                 // Override app names, if any
                 // This is just a file with comma-separated packageName,appName pairs
@@ -277,6 +279,8 @@ namespace QuestAppLauncher
                             Debug.Log("Found file: " + iconFileName);
                             iconOverrides[entry] = Path.Combine(iconOverridePath, iconFileName);
                         }
+
+                        yield return null;
                     }
                 }
 

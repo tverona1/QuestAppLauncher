@@ -22,7 +22,7 @@ namespace QuestAppLauncher
             public int cols = 3;
         }
 
-        public GridSize gridSize;
+        public GridSize gridSize = new GridSize();
     }
 
     /// <summary>
@@ -53,6 +53,10 @@ namespace QuestAppLauncher
                 {
                     Debug.Log(string.Format("Failed to read config: {0}", e.Message));
                 }
+            }
+            else
+            {
+                Debug.Log("Did not find config file: " + configFilePath);
             }
         }
 

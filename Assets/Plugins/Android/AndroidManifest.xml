@@ -8,12 +8,7 @@
             <action android:name="android.intent.action.MAIN" />
             <category android:name="android.intent.category.LAUNCHER" />
         </intent-filter>
-        <!--<intent-filter>
-            <data android:scheme="questapplauncher" />
-            <action android:name="android.intent.action.VIEW" />
-            <category android:name="android.intent.category.DEFAULT" />
-            <category android:name="android.intent.category.BROWSABLE" />
-        </intent-filter>-->
     </activity>
   </application>
+  <uses-feature android:name="android.hardware.vr.headtracking" android:required="true" android:version="1" />
 </manifest>
