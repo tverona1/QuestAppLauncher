@@ -23,6 +23,7 @@ namespace QuestAppLauncher
         }
 
         public GridSize gridSize = new GridSize();
+        public bool show2D = false;
     }
 
     /// <summary>

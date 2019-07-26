@@ -28,14 +28,14 @@ namespace QuestAppLauncher
         // Grid container game object
         public GameObject gridContainer;
 
-        // Scroll view game object
-        public GameObject scrollView;
-
         // Grid content game object
         public GameObject gridContent;
 
         // App info GameObject (a cell in the grid content)
         public GameObject prefab;
+
+        // Reference to executing populate routine
+        private Coroutine populateCoroutine;
 
         #region MonoBehaviour handler
 
@@ -47,11 +47,8 @@ namespace QuestAppLauncher
             // Initialize the core platform
             Core.AsyncInitialize();
 
-            // Process configuration
-            StartCoroutine(ProcessConfig());
-
             // Populate the grid
-            StartCoroutine(Populate());
+            StartPopulate();
         }
 
         void Update()
@@ -126,20 +123,6 @@ namespace QuestAppLauncher
             SceneManager.LoadScene(SceneManager.GetActiveScene().buildIndex);
         }
 
-        /// <summary>
-        /// Loads & processes config
-        /// </summary>
-        /// <returns></returns>
-        IEnumerator ProcessConfig()
-        {
-            // Load configuration
-            Config config = new Config();
-            ConfigPersistence.LoadConfig(config);
-            SetGridSize(config.gridSize.rows, config.gridSize.cols);
-
-            yield return null;
-        }
-
         public void SetGridSize(int rows, int cols)
         {
             // Make sure grid size have sane value
@@ -176,24 +159,40 @@ namespace QuestAppLauncher
                 (float)((gridTransform.rect.height - 2000) / 2.0),
                 gridTransform.anchoredPosition3D.z);
             gridTransform.anchoredPosition3D = gridPosition;
+        }
 
-            // Adjust scroll view rect transform
-            var scrollViewRectTransform = this.scrollView.GetComponent<RectTransform>();
-            scrollViewRectTransform.sizeDelta = new Vector2(width, height);
-            
-            // Adjust scroll view box collider
-            var scrollViewBoxCollider = this.scrollView.GetComponent<BoxCollider>();
-            scrollViewBoxCollider.size = new Vector3(width, height, 0);
+        public void StartPopulate()
+        {
+            // Ensure we only exeucte on populate routine at a time
+            if (null != this.populateCoroutine)
+            {
+                StopCoroutine(this.populateCoroutine);
+            }
+
+            this.populateCoroutine = this.StartCoroutine(Populate());
         }
 
         /// <summary>
         /// Populate the grid from installed apps
         /// </summary>
         /// <returns></returns>
-        IEnumerator Populate()
+        private IEnumerator Populate()
         {
             var persistentDataPath = UnityEngine.Application.persistentDataPath;
             Debug.Log("Persistent data path: " + persistentDataPath);
+
+            // Load configuration
+            Config config = new Config();
+            ConfigPersistence.LoadConfig(config);
+
+            // Clear any existing elements in grid
+            for (int i = 0; i < this.gridContent.transform.childCount; i++)
+            {
+                Destroy(this.gridContent.transform.GetChild(i).gameObject);
+            }
+
+            // Set grid size
+            SetGridSize(config.gridSize.rows, config.gridSize.cols);
 
             using (AndroidJavaClass unity = new AndroidJavaClass("com.unity3d.player.UnityPlayer"))
             using (AndroidJavaObject currentActivity = unity.GetStatic<AndroidJavaObject>("currentActivity"))
@@ -232,9 +231,20 @@ namespace QuestAppLauncher
 
                     if (excludedPackageNames.Contains(packageName))
                     {
-                        Debug.Log("Skipping [" + i + "] package: " + packageName + ", name: " + appName);
-                        // Skip exluded package
+                        // Skip excluded package
+                        Debug.LogFormat("Skipping Excluded [{0}] Package: {1}, name: {2}", i, packageName, appName);
                         continue;
+                    }
+
+                    if (!config.show2D)
+                    {
+                        var is2D = currentActivity.Call<bool>("is2DApp", i);
+                        if (is2D)
+                        {
+                            // Skip 2D apps
+                            Debug.LogFormat("Skipping 2D [{0}] Package: {1}, name: {2}", i, packageName, appName);
+                            continue;
+                        }
                     }
 
                     packageNameToAppName.Add(packageName, (i, appName));
@@ -291,7 +301,7 @@ namespace QuestAppLauncher
                 foreach (var app in packageNameToAppName.OrderBy(key => key.Value.AppName))
                 {
                     // Create new instances of our app info prefab
-                    var newObj = (GameObject)Instantiate(prefab, gridContent.transform);
+                    var newObj = (GameObject)Instantiate(this.prefab, this.gridContent.transform);
 
                     // Set app entry info
                     var appEntry = newObj.GetComponent("AppEntry") as AppEntry;

@@ -18,6 +18,7 @@ namespace QuestAppLauncher
         public GameObject gridRows;
         public GameObject gridRowsText;
         public GameObject gridPopulation;
+        public GameObject show2DToggle;
 
         private Config config = new Config();
 
@@ -43,12 +44,15 @@ namespace QuestAppLauncher
 
             var rowsText = this.gridRowsText.GetComponent<TextMeshProUGUI>();
             rowsText.text = string.Format("{0} Rows", this.config.gridSize.rows);
+
+            // Set 2D toggle
+            this.show2DToggle.GetComponent<Toggle>().SetIsOnWithoutNotify(this.config.show2D);
         }
 
         public void CloseSettings()
         {
-            // Resize grid if necessary
-            ResizeGrid();
+            // Persist any config changes
+            PersistConfig();
 
             Debug.Log("Close Settings");
             this.gridContainer.SetActive(true);
@@ -77,27 +81,52 @@ namespace QuestAppLauncher
             rowsText.text = string.Format("{0} Rows", rows);
         }
 
-        private void ResizeGrid()
+        private void PersistConfig()
         {
+            bool saveConfig = false;
+            bool resizeGrid = false;
+            bool rePopulate = false;
+
+            // Update grid size
             var cols = (int)gridCols.GetComponent<Slider>().value;
             var rows = (int)gridRows.GetComponent<Slider>().value;
 
-            if (cols == this.config.gridSize.cols &&
-                rows == this.config.gridSize.rows)
+            if (cols != this.config.gridSize.cols ||
+                rows != this.config.gridSize.rows)
             {
-                // Nothing was resized, so no work to do
-                return;
+                this.config.gridSize.cols = cols;
+                this.config.gridSize.rows = rows;
+                resizeGrid = true;
+                saveConfig = true;
             }
 
-            Debug.Log(string.Format("Resizing grid: {0} x {1}", cols, rows));
+            // Update 2D toggle
+            var show2D = this.show2DToggle.GetComponent<Toggle>().isOn;
+            if (show2D != this.config.show2D)
+            {
+                this.config.show2D = show2D;
+                saveConfig = true;
+                rePopulate = true;
+            }
 
-            // Update configuration
-            this.config.gridSize.cols = cols;
-            this.config.gridSize.rows = rows;
-            ConfigPersistence.SaveConfig(this.config);
+            if (saveConfig)
+            {
+                // Persist configuration
+                ConfigPersistence.SaveConfig(this.config);
+            }
 
-            // Update grid size
-            this.gridPopulation.GetComponent<GridPopulation>().SetGridSize(this.config.gridSize.rows, this.config.gridSize.cols);
+            if (rePopulate)
+            {
+                // Re-populate grid
+                Debug.Log("Re-populating panel");
+                this.gridPopulation.GetComponent<GridPopulation>().StartPopulate();
+            }
+            else if (resizeGrid)
+            {
+                // Update grid size
+                Debug.Log(string.Format("Resizing pael: {0} x {1}", cols, rows));
+                this.gridPopulation.GetComponent<GridPopulation>().SetGridSize(this.config.gridSize.rows, this.config.gridSize.cols);
+            }
         }
     }
 }
