@@ -49,7 +49,7 @@ public class AppInfo extends UnityPlayerActivity {
 
     public boolean isQuestApp(int i) {
         try {
-            PackageInfo info = this.getPackageManager().getPackageInfo(getPackageName(i), 0);
+            PackageInfo info = this.getPackageManager().getPackageInfo(getPackageName(i), PackageManager.GET_CONFIGURATIONS);
             if (null == info.reqFeatures) {
                 return false;
             }

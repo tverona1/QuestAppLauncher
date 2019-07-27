@@ -12,6 +12,11 @@ namespace QuestAppLauncher
     [Serializable]
     public class Config
     {
+        // Supported category types
+        public const string Category_None = "none";
+        public const string Category_Auto = "auto";
+        public const string Category_Custom = "custom";
+
         /// <summary>
         /// Grid size
         /// </summary>
@@ -24,6 +29,9 @@ namespace QuestAppLauncher
 
         public GridSize gridSize = new GridSize();
         public bool show2D = false;
+
+        // Category types: "none", "automatic", "custom"
+        public string categoryType = Category_Auto;
     }
 
     /// <summary>

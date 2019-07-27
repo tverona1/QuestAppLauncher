@@ -84,7 +84,6 @@ namespace QuestAppLauncher
         private void PersistConfig()
         {
             bool saveConfig = false;
-            bool resizeGrid = false;
             bool rePopulate = false;
 
             // Update grid size
@@ -96,7 +95,7 @@ namespace QuestAppLauncher
             {
                 this.config.gridSize.cols = cols;
                 this.config.gridSize.rows = rows;
-                resizeGrid = true;
+                rePopulate = true;
                 saveConfig = true;
             }
 
@@ -120,12 +119,6 @@ namespace QuestAppLauncher
                 // Re-populate grid
                 Debug.Log("Re-populating panel");
                 this.gridPopulation.GetComponent<GridPopulation>().StartPopulate();
-            }
-            else if (resizeGrid)
-            {
-                // Update grid size
-                Debug.Log(string.Format("Resizing pael: {0} x {1}", cols, rows));
-                this.gridPopulation.GetComponent<GridPopulation>().SetGridSize(this.config.gridSize.rows, this.config.gridSize.cols);
             }
         }
     }
