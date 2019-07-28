@@ -1,14 +1,14 @@
+using System;
 using System.Collections;
 using System.Collections.Generic;
-using System.Linq;
 using System.IO;
+using System.Linq;
 using UnityEngine;
 using UnityEngine.UI;
 using UnityEngine.XR;
-using System;
+using UnityEngine.SceneManagement;
 using Oculus.Platform;
 using TMPro;
-using UnityEngine.SceneManagement;
 
 namespace QuestAppLauncher
 {
@@ -210,11 +210,13 @@ namespace QuestAppLauncher
                 var packageNameToAppName = new Dictionary<string, (int Index, string TabName, string AppName)>();
                 var excludedPackageNames = new HashSet<string>();
                 var tabList = new List<string>();
+                var isNoneTab = false;
 
                 if (config.categoryType.Equals(Config.Category_None, StringComparison.OrdinalIgnoreCase))
                 {
                     // If no categories, just create a placeholder tab
                     tabList.Add(Tab_None);
+                    isNoneTab = true;
                 }
                 else
                 {
@@ -259,9 +261,13 @@ namespace QuestAppLauncher
                         continue;
                     }
 
-                    // Determine app type (Quest, Go or 2D)
+                    // Determine app type (None, Quest, Go or 2D)
                     string tabName;
-                    if (currentActivity.Call<bool>("is2DApp", i))
+                    if (isNoneTab)
+                    {
+                        tabName = Tab_None;
+                    }
+                    else if (currentActivity.Call<bool>("is2DApp", i))
                     {
                         if (!config.show2D)
                         {
@@ -381,7 +387,7 @@ namespace QuestAppLauncher
 
                 if (config.categoryType.Equals(Config.Category_None, StringComparison.OrdinalIgnoreCase))
                 {
-                    // Hide the "None" tab
+                    // Hide the special "None" tab
                     tab.SetActive(false);
                 }
 

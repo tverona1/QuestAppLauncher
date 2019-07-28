@@ -1,4 +1,5 @@
-﻿using System.Collections;
+﻿using System;
+using System.Collections;
 using System.Collections.Generic;
 using UnityEngine;
 using UnityEngine.UI;
@@ -9,7 +10,7 @@ namespace QuestAppLauncher
 {
     public class SettingsHandler : MonoBehaviour
     {
-        public GameObject gridContainer;
+        public GameObject panelContainer;
         public GameObject openSettingsButton;
         public GameObject closeSettingsButton;
         public GameObject settingsContainer;
@@ -20,12 +21,16 @@ namespace QuestAppLauncher
         public GameObject gridPopulation;
         public GameObject show2DToggle;
 
+        public Toggle tabsNone;
+        public Toggle tabsAuto;
+        public Toggle tabsCustom;
+
         private Config config = new Config();
 
         public void OpenSettings()
         {
             Debug.Log("Open Settings");
-            this.gridContainer.SetActive(false);
+            this.panelContainer.SetActive(false);
             this.openSettingsButton.SetActive(false);
             this.closeSettingsButton.SetActive(true);
             this.settingsContainer.SetActive(true);
@@ -47,6 +52,20 @@ namespace QuestAppLauncher
 
             // Set 2D toggle
             this.show2DToggle.GetComponent<Toggle>().SetIsOnWithoutNotify(this.config.show2D);
+
+            // Set tab mode
+            if (this.config.categoryType.Equals(Config.Category_None, StringComparison.OrdinalIgnoreCase))
+            {
+                this.tabsNone.isOn = true;
+            }
+            else if (this.config.categoryType.Equals(Config.Category_Auto, StringComparison.OrdinalIgnoreCase))
+            {
+                this.tabsAuto.isOn = true;
+            }
+            else
+            {
+                this.tabsCustom.isOn = true;
+            }
         }
 
         public void CloseSettings()
@@ -55,7 +74,7 @@ namespace QuestAppLauncher
             PersistConfig();
 
             Debug.Log("Close Settings");
-            this.gridContainer.SetActive(true);
+            this.panelContainer.SetActive(true);
             this.openSettingsButton.SetActive(true);
             this.closeSettingsButton.SetActive(false);
             this.settingsContainer.SetActive(false);
@@ -84,7 +103,6 @@ namespace QuestAppLauncher
         private void PersistConfig()
         {
             bool saveConfig = false;
-            bool rePopulate = false;
 
             // Update grid size
             var cols = (int)gridCols.GetComponent<Slider>().value;
@@ -95,7 +113,6 @@ namespace QuestAppLauncher
             {
                 this.config.gridSize.cols = cols;
                 this.config.gridSize.rows = rows;
-                rePopulate = true;
                 saveConfig = true;
             }
 
@@ -105,17 +122,35 @@ namespace QuestAppLauncher
             {
                 this.config.show2D = show2D;
                 saveConfig = true;
-                rePopulate = true;
             }
 
+            // Update tabbing
+            string tabMode;
+            if (this.tabsNone.isOn)
+            {
+                tabMode = Config.Category_None;
+            }
+            else if (this.tabsAuto.isOn)
+            {
+                tabMode = Config.Category_Auto;
+            }
+            else
+            {
+                tabMode = Config.Category_Custom;
+            }
+
+            if (!this.config.categoryType.Equals(tabMode, StringComparison.OrdinalIgnoreCase))
+            {
+                this.tabsNone.isOn = true;
+                this.config.categoryType = tabMode;
+                saveConfig = true;
+            }
+
+            // Persist configuration & re-populate
             if (saveConfig)
             {
-                // Persist configuration
                 ConfigPersistence.SaveConfig(this.config);
-            }
 
-            if (rePopulate)
-            {
                 // Re-populate grid
                 Debug.Log("Re-populating panel");
                 this.gridPopulation.GetComponent<GridPopulation>().StartPopulate();
