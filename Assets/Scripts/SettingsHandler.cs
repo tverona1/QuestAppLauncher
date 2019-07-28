@@ -1,4 +1,5 @@
-﻿using System.Collections;
+﻿using System;
+using System.Collections;
 using System.Collections.Generic;
 using UnityEngine;
 using UnityEngine.UI;
@@ -9,7 +10,7 @@ namespace QuestAppLauncher
 {
     public class SettingsHandler : MonoBehaviour
     {
-        public GameObject gridContainer;
+        public GameObject panelContainer;
         public GameObject openSettingsButton;
         public GameObject closeSettingsButton;
         public GameObject settingsContainer;
@@ -18,13 +19,18 @@ namespace QuestAppLauncher
         public GameObject gridRows;
         public GameObject gridRowsText;
         public GameObject gridPopulation;
+        public GameObject show2DToggle;
+
+        public Toggle tabsNone;
+        public Toggle tabsAuto;
+        public Toggle tabsCustom;
 
         private Config config = new Config();
 
         public void OpenSettings()
         {
             Debug.Log("Open Settings");
-            this.gridContainer.SetActive(false);
+            this.panelContainer.SetActive(false);
             this.openSettingsButton.SetActive(false);
             this.closeSettingsButton.SetActive(true);
             this.settingsContainer.SetActive(true);
@@ -43,15 +49,32 @@ namespace QuestAppLauncher
 
             var rowsText = this.gridRowsText.GetComponent<TextMeshProUGUI>();
             rowsText.text = string.Format("{0} Rows", this.config.gridSize.rows);
+
+            // Set 2D toggle
+            this.show2DToggle.GetComponent<Toggle>().SetIsOnWithoutNotify(this.config.show2D);
+
+            // Set tab mode
+            if (this.config.categoryType.Equals(Config.Category_None, StringComparison.OrdinalIgnoreCase))
+            {
+                this.tabsNone.isOn = true;
+            }
+            else if (this.config.categoryType.Equals(Config.Category_Auto, StringComparison.OrdinalIgnoreCase))
+            {
+                this.tabsAuto.isOn = true;
+            }
+            else
+            {
+                this.tabsCustom.isOn = true;
+            }
         }
 
         public void CloseSettings()
         {
-            // Resize grid if necessary
-            ResizeGrid();
+            // Persist any config changes
+            PersistConfig();
 
             Debug.Log("Close Settings");
-            this.gridContainer.SetActive(true);
+            this.panelContainer.SetActive(true);
             this.openSettingsButton.SetActive(true);
             this.closeSettingsButton.SetActive(false);
             this.settingsContainer.SetActive(false);
@@ -77,27 +100,61 @@ namespace QuestAppLauncher
             rowsText.text = string.Format("{0} Rows", rows);
         }
 
-        private void ResizeGrid()
+        private void PersistConfig()
         {
+            bool saveConfig = false;
+
+            // Update grid size
             var cols = (int)gridCols.GetComponent<Slider>().value;
             var rows = (int)gridRows.GetComponent<Slider>().value;
 
-            if (cols == this.config.gridSize.cols &&
-                rows == this.config.gridSize.rows)
+            if (cols != this.config.gridSize.cols ||
+                rows != this.config.gridSize.rows)
             {
-                // Nothing was resized, so no work to do
-                return;
+                this.config.gridSize.cols = cols;
+                this.config.gridSize.rows = rows;
+                saveConfig = true;
             }
 
-            Debug.Log(string.Format("Resizing grid: {0} x {1}", cols, rows));
+            // Update 2D toggle
+            var show2D = this.show2DToggle.GetComponent<Toggle>().isOn;
+            if (show2D != this.config.show2D)
+            {
+                this.config.show2D = show2D;
+                saveConfig = true;
+            }
 
-            // Update configuration
-            this.config.gridSize.cols = cols;
-            this.config.gridSize.rows = rows;
-            ConfigPersistence.SaveConfig(this.config);
+            // Update tabbing
+            string tabMode;
+            if (this.tabsNone.isOn)
+            {
+                tabMode = Config.Category_None;
+            }
+            else if (this.tabsAuto.isOn)
+            {
+                tabMode = Config.Category_Auto;
+            }
+            else
+            {
+                tabMode = Config.Category_Custom;
+            }
 
-            // Update grid size
-            this.gridPopulation.GetComponent<GridPopulation>().SetGridSize(this.config.gridSize.rows, this.config.gridSize.cols);
+            if (!this.config.categoryType.Equals(tabMode, StringComparison.OrdinalIgnoreCase))
+            {
+                this.tabsNone.isOn = true;
+                this.config.categoryType = tabMode;
+                saveConfig = true;
+            }
+
+            // Persist configuration & re-populate
+            if (saveConfig)
+            {
+                ConfigPersistence.SaveConfig(this.config);
+
+                // Re-populate grid
+                Debug.Log("Re-populating panel");
+                this.gridPopulation.GetComponent<GridPopulation>().StartPopulate();
+            }
         }
     }
 }

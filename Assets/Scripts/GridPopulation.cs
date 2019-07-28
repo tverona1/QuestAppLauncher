@@ -1,14 +1,14 @@
+using System;
 using System.Collections;
 using System.Collections.Generic;
-using System.Linq;
 using System.IO;
+using System.Linq;
 using UnityEngine;
 using UnityEngine.UI;
 using UnityEngine.XR;
-using System;
+using UnityEngine.SceneManagement;
 using Oculus.Platform;
 using TMPro;
-using UnityEngine.SceneManagement;
 
 namespace QuestAppLauncher
 {
@@ -26,16 +26,34 @@ namespace QuestAppLauncher
         const string IconOverrideExtSearch = "*.jpg";
 
         // Grid container game object
-        public GameObject gridContainer;
+        public GameObject panelContainer;
 
-        // Scroll view game object
-        public GameObject scrollView;
+        // Scroll container game object
+        public GameObject scrollContainer;
 
-        // Grid content game object
-        public GameObject gridContent;
+        // Tab container
+        public GameObject tabContainer;
 
-        // App info GameObject (a cell in the grid content)
-        public GameObject prefab;
+        // Tracking space
+        public GameObject trackingSpace;
+
+        // App info prefab (a cell in the grid content)
+        public GameObject prefabCell;
+
+        // Scroll view prefab
+        public GameObject prefabScrollView;
+
+        // Tab prefab
+        public GameObject prefabTab;
+
+        // Reference to executing populate routine
+        private Coroutine populateCoroutine;
+
+        // Built-in tab names
+        private const string Tab_None = "None";
+        private const string Tab_Quest = "Quest";
+        private const string Tab_Go = "Go/Gear";
+        private const string Tab_2D = "2D";
 
         #region MonoBehaviour handler
 
@@ -47,11 +65,8 @@ namespace QuestAppLauncher
             // Initialize the core platform
             Core.AsyncInitialize();
 
-            // Process configuration
-            StartCoroutine(ProcessConfig());
-
             // Populate the grid
-            StartCoroutine(Populate());
+            StartPopulate();
         }
 
         void Update()
@@ -60,7 +75,7 @@ namespace QuestAppLauncher
         #endregion
 
         #region Private Functions
-        
+
         /// <summary>
         /// Static method for launching an Android app
         /// </summary>
@@ -126,21 +141,7 @@ namespace QuestAppLauncher
             SceneManager.LoadScene(SceneManager.GetActiveScene().buildIndex);
         }
 
-        /// <summary>
-        /// Loads & processes config
-        /// </summary>
-        /// <returns></returns>
-        IEnumerator ProcessConfig()
-        {
-            // Load configuration
-            Config config = new Config();
-            ConfigPersistence.LoadConfig(config);
-            SetGridSize(config.gridSize.rows, config.gridSize.cols);
-
-            yield return null;
-        }
-
-        public void SetGridSize(int rows, int cols)
+        public void SetGridSize(GameObject gridContent, int rows, int cols)
         {
             // Make sure grid size have sane value
             cols = Math.Min(cols, 10);
@@ -149,7 +150,7 @@ namespace QuestAppLauncher
             rows = Math.Max(rows, 1);
 
             // Get cell size, spacing & padding from the grid layout
-            var gridLayoutGroup = this.gridContent.GetComponent<GridLayoutGroup>();
+            var gridLayoutGroup = gridContent.GetComponent<GridLayoutGroup>();
             var cellHeight = gridLayoutGroup.cellSize.y;
             var cellWidth = gridLayoutGroup.cellSize.x;
             var paddingX = gridLayoutGroup.padding.horizontal;
@@ -167,7 +168,7 @@ namespace QuestAppLauncher
             Debug.Log(string.Format("Grid size calculated width x height: {0} x {1}", width, height));
 
             // Adjust grid container rect transform
-            var gridTransform = this.gridContainer.GetComponent<RectTransform>();
+            var gridTransform = this.panelContainer.GetComponent<RectTransform>();
             gridTransform.sizeDelta = new Vector2(width, height);
 
             // Adjust grid container Y position to maintain constant height.
@@ -176,31 +177,54 @@ namespace QuestAppLauncher
                 (float)((gridTransform.rect.height - 2000) / 2.0),
                 gridTransform.anchoredPosition3D.z);
             gridTransform.anchoredPosition3D = gridPosition;
+        }
 
-            // Adjust scroll view rect transform
-            var scrollViewRectTransform = this.scrollView.GetComponent<RectTransform>();
-            scrollViewRectTransform.sizeDelta = new Vector2(width, height);
-            
-            // Adjust scroll view box collider
-            var scrollViewBoxCollider = this.scrollView.GetComponent<BoxCollider>();
-            scrollViewBoxCollider.size = new Vector3(width, height, 0);
+        public void StartPopulate()
+        {
+            // Ensure we only exeucte on populate routine at a time
+            if (null != this.populateCoroutine)
+            {
+                StopCoroutine(this.populateCoroutine);
+            }
+
+            this.populateCoroutine = this.StartCoroutine(Populate());
         }
 
         /// <summary>
         /// Populate the grid from installed apps
         /// </summary>
         /// <returns></returns>
-        IEnumerator Populate()
+        private IEnumerator Populate()
         {
             var persistentDataPath = UnityEngine.Application.persistentDataPath;
             Debug.Log("Persistent data path: " + persistentDataPath);
+
+            // Load configuration
+            Config config = new Config();
+            ConfigPersistence.LoadConfig(config);
 
             using (AndroidJavaClass unity = new AndroidJavaClass("com.unity3d.player.UnityPlayer"))
             using (AndroidJavaObject currentActivity = unity.GetStatic<AndroidJavaObject>("currentActivity"))
             {
                 // Dictionary to hold package name -> app index, app name
-                var packageNameToAppName = new Dictionary<string, (int Index, string AppName)>();
+                var packageNameToAppName = new Dictionary<string, (int Index, string TabName, string AppName)>();
                 var excludedPackageNames = new HashSet<string>();
+                var tabList = new List<string>();
+                var isNoneTab = false;
+
+                if (config.categoryType.Equals(Config.Category_None, StringComparison.OrdinalIgnoreCase))
+                {
+                    // If no categories, just create a placeholder tab
+                    tabList.Add(Tab_None);
+                    isNoneTab = true;
+                }
+                else
+                {
+                    // Create built-in categories
+                    tabList.Add(Tab_Quest);
+                    tabList.Add(Tab_Go);
+                    tabList.Add(Tab_2D);
+                }
 
                 // Get # of installed apps
                 int numApps = currentActivity.Call<int>("getSize");
@@ -232,13 +256,39 @@ namespace QuestAppLauncher
 
                     if (excludedPackageNames.Contains(packageName))
                     {
-                        Debug.Log("Skipping [" + i + "] package: " + packageName + ", name: " + appName);
-                        // Skip exluded package
+                        // Skip excluded package
+                        Debug.LogFormat("Skipping Excluded [{0}] Package: {1}, name: {2}", i, packageName, appName);
                         continue;
                     }
 
-                    packageNameToAppName.Add(packageName, (i, appName));
-                    Debug.Log("[" + i + "] package: " + packageName + ", name: " + appName);
+                    // Determine app type (None, Quest, Go or 2D)
+                    string tabName;
+                    if (isNoneTab)
+                    {
+                        tabName = Tab_None;
+                    }
+                    else if (currentActivity.Call<bool>("is2DApp", i))
+                    {
+                        if (!config.show2D)
+                        {
+                            // Skip 2D apps
+                            Debug.LogFormat("Skipping 2D [{0}] Package: {1}, name: {2}", i, packageName, appName);
+                            continue;
+                        }
+
+                        tabName = Tab_2D;
+                    }
+                    else if (currentActivity.Call<bool>("isQuestApp", i))
+                    {
+                        tabName = Tab_Quest;
+                    }
+                    else
+                    {
+                        tabName = Tab_Go;
+                    }
+
+                    packageNameToAppName.Add(packageName, (i, tabName, appName));
+                    Debug.LogFormat("[{0}] package: {1}, name: {2}, tab: {3}", i, packageName, appName, tabName);
                     yield return null;
                 }
 
@@ -254,7 +304,8 @@ namespace QuestAppLauncher
                         var entry = overriddenName.Split(',');
                         if (2 == entry.Length && packageNameToAppName.ContainsKey(entry[0]))
                         {
-                            packageNameToAppName[entry[0]] = (packageNameToAppName[entry[0]].Index, entry[1]);
+                            packageNameToAppName[entry[0]] = (packageNameToAppName[entry[0]].Index,
+                                packageNameToAppName[entry[0]].TabName, entry[1]);
                         }
                     }
                 }
@@ -286,60 +337,136 @@ namespace QuestAppLauncher
 
                 yield return null;
 
-                // Populate grid with app information (name & icon)
-                // Sort by app name
-                foreach (var app in packageNameToAppName.OrderBy(key => key.Value.AppName))
-                {
-                    // Create new instances of our app info prefab
-                    var newObj = (GameObject)Instantiate(prefab, gridContent.transform);
-
-                    // Set app entry info
-                    var appEntry = newObj.GetComponent("AppEntry") as AppEntry;
-                    appEntry.packageId = app.Key;
-                    appEntry.appName = app.Value.AppName;
-
-                    // Get app icon
-                    byte[] bytesIcon = null;
-                    bool useApkIcon = true;
-                    if (iconOverrides.ContainsKey(app.Key))
-                    {
-                        // Use overridden icon
-                        try
-                        {
-                            bytesIcon = File.ReadAllBytes(iconOverrides[app.Key]);
-                            useApkIcon = false;
-                        }
-                        catch (Exception e)
-                        {
-
-                            // Fall back to using the apk icon
-                            Debug.Log(string.Format("Error reading app icon from file [{0}]: {1}", iconOverrides[app.Key], e.Message));
-                        }
-                    }
-
-                    if (useApkIcon)
-                    {
-                        // Use built-in icon from the apk
-                        bytesIcon = (byte[])(Array)currentActivity.Call<sbyte[]>("getIcon", app.Value.Index);
-                    }
-
-                    // Set the icon image
-                    var image = newObj.transform.Find("AppIcon").GetComponentInChildren<Image>();
-                    var texture = new Texture2D(2, 2, TextureFormat.RGB24, false);
-                    texture.filterMode = FilterMode.Trilinear;
-                    texture.anisoLevel = 16;
-                    texture.LoadImage(bytesIcon);
-                    var rect = new Rect(0, 0, texture.width, texture.height);
-                    image.sprite = Sprite.Create(texture, rect, new Vector2(0.5f, 0.5f));
-
-                    // Set app name in text
-                    var text = newObj.transform.Find("AppName").GetComponentInChildren<TextMeshProUGUI>();
-                    text.text = app.Value.AppName;
-
-                    yield return null;
-                }
+                // Populate the panel content
+                yield return PopulatePanelContent(currentActivity, config, tabList, packageNameToAppName, iconOverrides);
             }
         }
-        #endregion
+
+        private IEnumerator PopulatePanelContent(
+            AndroidJavaObject currentActivity,
+            Config config,
+            List<string> tabList,
+            Dictionary<string, (int Index, string TabName, string AppName)> apps,
+            Dictionary<string, string> iconOverrides)
+        {
+            // Destroy existing scrollviews and tabs
+            for (int i = 0; i < this.tabContainer.transform.childCount; i++)
+            {
+                Destroy(this.tabContainer.transform.GetChild(i).gameObject);
+                Destroy(this.scrollContainer.transform.GetChild(i).gameObject);
+            }
+
+            var gridContents = new Dictionary<string, (GameObject gridContent, GameObject scrollView, GameObject tab, bool isInUse)>();
+            bool isFirstTab = true;
+
+            // Create scroll views and tabs
+            foreach (string tabName in tabList)
+            {
+                Debug.LogFormat("Populating tab '{0}'", tabName);
+
+                // Create scroll view
+                var scrollView = (GameObject)Instantiate(this.prefabScrollView, this.scrollContainer.transform);
+                var scrollRectOverride = scrollView.GetComponent<ScrollRectOverride>();
+                scrollRectOverride.trackingSpace = this.trackingSpace.transform;
+                scrollRectOverride.name = tabName;
+
+                var gridContent = scrollRectOverride.content.gameObject;
+                scrollView.SetActive(isFirstTab);
+
+                // Set grid size
+                SetGridSize(gridContent, config.gridSize.rows, config.gridSize.cols);
+
+                // Create tab
+                var tab = (GameObject)Instantiate(this.prefabTab, this.tabContainer.transform);
+                tab.GetComponentInChildren<TextMeshProUGUI>().text = tabName;
+
+                var toggle = tab.GetComponent<Toggle>();
+                toggle.isOn = isFirstTab;
+                toggle.group = this.tabContainer.GetComponent<ToggleGroup>();
+                toggle.onValueChanged.AddListener(scrollView.SetActive);
+
+                if (config.categoryType.Equals(Config.Category_None, StringComparison.OrdinalIgnoreCase))
+                {
+                    // Hide the special "None" tab
+                    tab.SetActive(false);
+                }
+
+                // Record the grid content
+                gridContents[tabName] = (scrollView.GetComponent<ScrollRect>().content.gameObject,
+                scrollView, tab, false);
+                isFirstTab = false;
+            }
+
+            // Populate grid with app information (name & icon)
+            // Sort by app name
+            foreach (var app in apps.OrderBy(key => key.Value.AppName))
+            {
+                // Create new instances of our app info prefabCell
+                var gridContent = gridContents[app.Value.TabName].gridContent;
+                var newObj = (GameObject)Instantiate(this.prefabCell, gridContent.transform);
+
+                // Mark that this grid content is in use
+                gridContents[app.Value.TabName] = (gridContent, gridContents[app.Value.TabName].scrollView,
+                    gridContents[app.Value.TabName].tab, true);
+
+                // Set app entry info
+                var appEntry = newObj.GetComponent("AppEntry") as AppEntry;
+                appEntry.packageId = app.Key;
+                appEntry.appName = app.Value.AppName;
+
+                // Get app icon
+                byte[] bytesIcon = null;
+                bool useApkIcon = true;
+                if (iconOverrides.ContainsKey(app.Key))
+                {
+                    // Use overridden icon
+                    try
+                    {
+                        bytesIcon = File.ReadAllBytes(iconOverrides[app.Key]);
+                        useApkIcon = false;
+                    }
+                    catch (Exception e)
+                    {
+                        // Fall back to using the apk icon
+                        Debug.Log(string.Format("Error reading app icon from file [{0}]: {1}", iconOverrides[app.Key], e.Message));
+                    }
+                }
+
+                if (useApkIcon)
+                {
+                    // Use built-in icon from the apk
+                    bytesIcon = (byte[])(Array)currentActivity.Call<sbyte[]>("getIcon", app.Value.Index);
+                }
+
+                // Set the icon image
+                var image = newObj.transform.Find("AppIcon").GetComponentInChildren<Image>();
+                var texture = new Texture2D(2, 2, TextureFormat.RGB24, false);
+                texture.filterMode = FilterMode.Trilinear;
+                texture.anisoLevel = 16;
+                texture.LoadImage(bytesIcon);
+                var rect = new Rect(0, 0, texture.width, texture.height);
+                image.sprite = Sprite.Create(texture, rect, new Vector2(0.5f, 0.5f));
+
+                // Set app name in text
+                var text = newObj.transform.Find("AppName").GetComponentInChildren<TextMeshProUGUI>();
+                text.text = app.Value.AppName;
+
+                yield return null;
+            }
+
+            // Remove any empty scroll views and tabs
+            foreach (string tabName in tabList)
+            {
+                if (gridContents[tabName].isInUse)
+                {
+                    continue;
+                }
+
+                Debug.LogFormat("Removing empty tab '{0}'", tabName);
+                Destroy(gridContents[tabName].scrollView);
+                Destroy(gridContents[tabName].tab);
+            }
+        }
     }
+    #endregion
 }
