@@ -27,10 +27,21 @@ namespace QuestAppLauncher
             public int cols = 3;
         }
 
+        // Grid size, specified as cols x rows
         public GridSize gridSize = new GridSize();
+
+        // Whether to show 2D apps
         public bool show2D = false;
 
-        // Category types: "none", "automatic", "custom"
+        // Whether to only show apps that are explicitly specified in appnames.txt file.
+        // If true, this will not show installed apps that are not in appnames.txt. This
+        // is useful for organizing the launcher with a highly curated list of apps.
+        public bool showOnlyCustom = false;
+
+        // Category types: "none", "auto", "custom":
+        //  - none: No categories - all apps are listed in a single pane
+        //  - auto: Apps are automatically categorized into 3 tabs - Quest, Go/GearVr, 2D
+        //  - custom: Apps are categorized according to appnames.txt file
         public string categoryType = Category_Auto;
     }
 

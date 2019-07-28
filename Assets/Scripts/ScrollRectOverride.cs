@@ -64,7 +64,6 @@ namespace QuestAppLauncher
             else if (isInBounds)
             {
                 // We are outside the scroll view and were previously inside, so disable box colliders on children.
-                Debug.Log("ScrollRectOverride: Disabling box colliders on children");
                 foreach (var boxCollider in this.content.gameObject.GetComponentsInChildren<BoxCollider>())
                 {
                     boxCollider.enabled = false;

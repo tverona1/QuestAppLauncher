@@ -21,8 +21,10 @@ namespace QuestAppLauncher
             public int Index;
             public string PackageName;
             public string AppName;
+            public string AutoTabName;
             public string Tab1Name;
             public string Tab2Name;
+            public bool IsOverride;
         }
 
         // File name of app name overrides
@@ -138,16 +140,19 @@ namespace QuestAppLauncher
         /// <summary>
         /// Static method to delete the excludedFile
         /// </summary>
-        /// <param name="packageName"></param>
-        static public void DeleteExcludedApksFile()
+        /// <returns>true if file exists</returns>
+        static public bool DeleteExcludedAppsFile()
         {
             var persistentDataPath = UnityEngine.Application.persistentDataPath;
             var excludedPackageNamesFilePath = Path.Combine(persistentDataPath, ExcludedPackagesFile);
 
             if (File.Exists(excludedPackageNamesFilePath))
+            {
                 File.Delete(excludedPackageNamesFilePath);
+                return true;
+            }
 
-            SceneManager.LoadScene(SceneManager.GetActiveScene().buildIndex);
+            return false;
         }
 
         public void SetGridSize(GameObject gridContent, int rows, int cols)
@@ -276,7 +281,7 @@ namespace QuestAppLauncher
                         tabName = Tab_Go;
                     }
 
-                    apps.Add(packageName, new ProcessedApp { PackageName = packageName, Index = i, Tab1Name = tabName, AppName = appName });
+                    apps.Add(packageName, new ProcessedApp { PackageName = packageName, Index = i, AutoTabName = tabName, Tab1Name = tabName, AppName = appName });
                     Debug.LogFormat("[{0}] package: {1}, name: {2}, tab: {3}", i, packageName, appName, tabName);
                     yield return null;
                 }
@@ -334,8 +339,10 @@ namespace QuestAppLauncher
                             PackageName = apps[entry[0]].PackageName,
                             Index = apps[entry[0]].Index,
                             AppName = appName,
+                            AutoTabName = apps[entry[0]].AutoTabName,
                             Tab1Name = tab1 ?? apps[entry[0]].Tab1Name,
-                            Tab2Name = tab2
+                            Tab2Name = tab2,
+                            IsOverride = true
                         };
                     }
                 }
@@ -387,6 +394,7 @@ namespace QuestAppLauncher
 
             List<string> tabs;
             bool isNoneTab = false;
+            bool isAutoTab = false;
 
             if (config.categoryType.Equals(Config.Category_None, StringComparison.OrdinalIgnoreCase))
             {
@@ -402,6 +410,7 @@ namespace QuestAppLauncher
                 tabs.Add(Tab_Quest);
                 tabs.Add(Tab_Go);
                 tabs.Add(Tab_2D);
+                isAutoTab = true;
             }
             else
             {
@@ -468,10 +477,23 @@ namespace QuestAppLauncher
             // Sort by app name
             foreach (var app in apps.OrderBy(key => key.Value.AppName))
             {
+                if (config.showOnlyCustom && !app.Value.IsOverride)
+                {
+                    // Since showOnlyCustom is set, skip apps that are not in the appnames.txt file
+                    Debug.LogFormat("Skipping non-Show Only Custom [{0}] Package: {1}, name: {2}",
+                        app.Value.Index, app.Value.PackageName, app.Value.AppName);
+                    continue;
+                }
+
                 if (isNoneTab)
                 {
                     // No tabs, so use the special "None" tab
                     yield return AddCellToGrid(app.Value, gridContents[Tab_None].transform, iconOverrides, currentActivity);
+                }
+                else if (isAutoTab)
+                {
+                    // Add to auto (built-in) tabs
+                    yield return AddCellToGrid(app.Value, gridContents[app.Value.AutoTabName].transform, iconOverrides, currentActivity);
                 }
                 else
                 {
