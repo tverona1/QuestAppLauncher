@@ -20,10 +20,13 @@ namespace QuestAppLauncher
         public GameObject gridRowsText;
         public GameObject gridPopulation;
         public GameObject show2DToggle;
+        public GameObject showOnlyCustomToggle;
 
         public Toggle tabsNone;
         public Toggle tabsAuto;
         public Toggle tabsCustom;
+
+        private bool deletedHiddenAppsFile = false;
 
         private Config config = new Config();
 
@@ -53,6 +56,9 @@ namespace QuestAppLauncher
             // Set 2D toggle
             this.show2DToggle.GetComponent<Toggle>().SetIsOnWithoutNotify(this.config.show2D);
 
+            // Set ShowOnlyCustom toggle
+            this.showOnlyCustomToggle.GetComponent<Toggle>().SetIsOnWithoutNotify(this.config.showOnlyCustom);
+            
             // Set tab mode
             if (this.config.categoryType.Equals(Config.Category_None, StringComparison.OrdinalIgnoreCase))
             {
@@ -82,8 +88,12 @@ namespace QuestAppLauncher
 
         public void DeleteExcludedApksFile()
         {
-            Debug.Log("Delete Excluded Apk List");
-            QuestAppLauncher.GridPopulation.DeleteExcludedApksFile();
+            Debug.Log("Delete Excluded App List");
+
+            if (!this.deletedHiddenAppsFile)
+            {
+                this.deletedHiddenAppsFile = QuestAppLauncher.GridPopulation.DeleteExcludedAppsFile();
+            }
         }
 
         public void UpdateGridColText()
@@ -124,6 +134,14 @@ namespace QuestAppLauncher
                 saveConfig = true;
             }
 
+            // Update ShowOnlyCustom toggle
+            var showOnlyCustom = this.showOnlyCustomToggle.GetComponent<Toggle>().isOn;
+            if (showOnlyCustom != this.config.showOnlyCustom)
+            {
+                this.config.showOnlyCustom = showOnlyCustom;
+                saveConfig = true;
+            }
+
             // Update tabbing
             string tabMode;
             if (this.tabsNone.isOn)
@@ -150,8 +168,11 @@ namespace QuestAppLauncher
             if (saveConfig)
             {
                 ConfigPersistence.SaveConfig(this.config);
+            }
 
-                // Re-populate grid
+            // If we touched the config file or we deleted the hidden apps file, re-populate the grid
+            if (saveConfig || deletedHiddenAppsFile)
+            {
                 Debug.Log("Re-populating panel");
                 this.gridPopulation.GetComponent<GridPopulation>().StartPopulate();
             }
