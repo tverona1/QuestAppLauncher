@@ -21,14 +21,14 @@ com.thirdcompany.yetanotherapp.jpg
 Copy these files to the following location on your Quest: Android/data/aaa.QuestAppLauncher.App/files
 
 ## Configuration
-The app can be customized by creating a **config.json** file and copying it to the following location on your Quest: Android/data/aaa.QuestAppLauncher.App/files.  
+The launcher can be customized by creating a **config.json** file and copying it to the following location on your Quest: Android/data/aaa.QuestAppLauncher.App/files.  
 
 The following options are supported:  
 ### Categories (tabs)
 By default, the launcher will display 3 tabs - Quest, Go/GrearVr and 2D. This can be overridden by specifying the field "categoryType" with one of the following values:
 
-"none": No categories - all apps are listed in a single pane
-"auto": Apps are automatically categorized into 3 tabs - Quest, Go/GearVr, 2D
+"none": No categories - all apps are listed in a single pane  
+"auto": Apps are automatically categorized into 3 tabs - Quest, Go/GearVr, 2D  
 "custom": Apps are categorized according to appnames.txt file - see below
 
 ### Setting Grid Size
@@ -47,7 +47,7 @@ The default grid size is 3x3 cells. The grid size can be customized by specifyin
 To show or hide 2D apps, set the "show2D" field to true or false
 
 ### Only showing apps specified in appnames.txt
-By default, the launcher will show all installed apps. Use this "showOnlyCustom" option to exclude any apps that are not specified appnames.txt. This is useful for organizing the launcher with a highly curated list of apps.
+By default, the launcher will show all installed apps. Use the "showOnlyCustom" option to exclude any apps that are not specified in appnames.txt. This is useful for organizing the launcher with a highly curated list of apps.
 
 ### Example config.json
 Here's an example config.json:
