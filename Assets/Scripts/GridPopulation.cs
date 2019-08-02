@@ -45,6 +45,9 @@ namespace QuestAppLauncher
         // Tab container
         public GameObject tabContainer;
 
+        // Tab container
+        public GameObject tabContainerContent;
+
         // Tracking space
         public GameObject trackingSpace;
 
@@ -386,9 +389,9 @@ namespace QuestAppLauncher
             Dictionary<string, string> iconOverrides)
         {
             // Destroy existing scrollviews and tabs
-            for (int i = 0; i < this.tabContainer.transform.childCount; i++)
+            for (int i = 0; i < this.tabContainerContent.transform.childCount; i++)
             {
-                Destroy(this.tabContainer.transform.GetChild(i).gameObject);
+                Destroy(this.tabContainerContent.transform.GetChild(i).gameObject);
                 Destroy(this.scrollContainer.transform.GetChild(i).gameObject);
             }
 
@@ -453,12 +456,12 @@ namespace QuestAppLauncher
                 SetGridSize(gridContent, config.gridSize.rows, config.gridSize.cols);
 
                 // Create tab
-                var tab = (GameObject)Instantiate(this.prefabTab, this.tabContainer.transform);
+                var tab = (GameObject)Instantiate(this.prefabTab, this.tabContainerContent.transform);
                 tab.GetComponentInChildren<TextMeshProUGUI>().text = tabName;
 
                 var toggle = tab.GetComponent<Toggle>();
                 toggle.isOn = isFirstTab;
-                toggle.group = this.tabContainer.GetComponent<ToggleGroup>();
+                toggle.group = this.tabContainerContent.GetComponent<ToggleGroup>();
                 toggle.onValueChanged.AddListener(scrollView.SetActive);
 
                 if (isNoneTab)
@@ -472,6 +475,10 @@ namespace QuestAppLauncher
                 // Record the grid content
                 gridContents[tabName] = scrollView.GetComponent<ScrollRect>().content.gameObject;
             }
+
+            // Refresh tab prev / next buttons
+            this.tabContainer.GetComponent<ScrollButtonHandler>().RefreshScrollContent(tabs.Count);
+            this.tabContainer.GetComponent<ScrollRectColliderMask>().Refresh();
 
             // Populate grid with app information (name & icon)
             // Sort by app name
