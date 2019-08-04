@@ -42,8 +42,15 @@ namespace QuestAppLauncher
         // Scroll container game object
         public GameObject scrollContainer;
 
+        // Tab containers
+        public GameObject topTabContainer;
+        public GameObject leftTabContainer;
+        public GameObject rightTabContainer;
+
         // Tab container
-        public GameObject tabContainer;
+        public GameObject topTabContainerContent;
+        public GameObject leftTabContainerContent;
+        public GameObject rightTabContainerContent;
 
         // Tracking space
         public GameObject trackingSpace;
@@ -61,10 +68,12 @@ namespace QuestAppLauncher
         private Coroutine populateCoroutine;
 
         // Built-in tab names
-        private const string Tab_None = "None";
         private const string Tab_Quest = "Quest";
         private const string Tab_Go = "Go/Gear";
         private const string Tab_2D = "2D";
+        private const string Tab_All = "All";
+
+        private static readonly string[] Auto_Tabs = { Tab_Quest, Tab_Go, Tab_2D };
 
         #region MonoBehaviour handler
 
@@ -155,7 +164,7 @@ namespace QuestAppLauncher
             return false;
         }
 
-        public void SetGridSize(GameObject gridContent, int rows, int cols)
+        public Vector2 SetGridSize(GameObject gridContent, int rows, int cols)
         {
             // Make sure grid size have sane value
             cols = Math.Min(cols, 10);
@@ -182,8 +191,10 @@ namespace QuestAppLauncher
             Debug.Log(string.Format("Grid size calculated width x height: {0} x {1}", width, height));
 
             // Adjust grid container rect transform
+            var size = new Vector2(width, height);
+
             var gridTransform = this.panelContainer.GetComponent<RectTransform>();
-            gridTransform.sizeDelta = new Vector2(width, height);
+            gridTransform.sizeDelta = size;
 
             // Adjust grid container Y position to maintain constant height.
             // TODO: Figure out a way to adjust UI to avoid this calculation in code
@@ -191,6 +202,8 @@ namespace QuestAppLauncher
                 (float)((gridTransform.rect.height - 2000) / 2.0),
                 gridTransform.anchoredPosition3D.z);
             gridTransform.anchoredPosition3D = gridPosition;
+
+            return size;
         }
 
         public void StartPopulate()
@@ -281,8 +294,8 @@ namespace QuestAppLauncher
                         tabName = Tab_Go;
                     }
 
-                    apps.Add(packageName, new ProcessedApp { PackageName = packageName, Index = i, AutoTabName = tabName, Tab1Name = tabName, AppName = appName });
-                    Debug.LogFormat("[{0}] package: {1}, name: {2}, tab: {3}", i, packageName, appName, tabName);
+                    apps.Add(packageName, new ProcessedApp { PackageName = packageName, Index = i, AutoTabName = tabName, AppName = appName });
+                    Debug.LogFormat("[{0}] package: {1}, name: {2}, auto tab: {3}", i, packageName, appName, tabName);
                     yield return null;
                 }
 
@@ -314,6 +327,15 @@ namespace QuestAppLauncher
 
                         var packageName = entry[0];
                         var appName = entry[1];
+
+                        if (!apps.ContainsKey(packageName))
+                        {
+                            // App is not installed, so skip
+                            continue;
+                        }
+
+                        // Get the custom tab names, if any
+                        string autoTabName = null;
                         var tab1 = entry.Length > 2 ? entry[2] : null;
                         var tab2 = entry.Length > 3 ? entry[3] : null;
 
@@ -327,10 +349,22 @@ namespace QuestAppLauncher
                             tab2 = null;
                         }
 
-                        if (!apps.ContainsKey(packageName))
+                        if (tab1 != null && tab2 != null && tab1.Equals(tab2, StringComparison.OrdinalIgnoreCase))
                         {
-                            // App is not installed, so skip
-                            continue;
+                            tab2 = null;
+                        }
+
+                        // Override auto tabe name if custom name matches built-in tab name
+                        if (tab1 != null && Auto_Tabs.Contains(tab1, StringComparer.OrdinalIgnoreCase))
+                        {
+                            autoTabName = tab1;
+                            tab1 = null;
+                        }
+
+                        if (tab2 != null && Auto_Tabs.Contains(tab2, StringComparer.OrdinalIgnoreCase))
+                        {
+                            autoTabName = tab2;
+                            tab2 = null;
                         }
 
                         // Update entry
@@ -339,9 +373,9 @@ namespace QuestAppLauncher
                             PackageName = apps[entry[0]].PackageName,
                             Index = apps[entry[0]].Index,
                             AppName = appName,
-                            AutoTabName = apps[entry[0]].AutoTabName,
+                            AutoTabName = autoTabName ?? apps[entry[0]].AutoTabName,
                             Tab1Name = tab1 ?? apps[entry[0]].Tab1Name,
-                            Tab2Name = tab2,
+                            Tab2Name = tab2 ?? apps[entry[0]].Tab2Name,
                             IsOverride = true
                         };
                     }
@@ -385,56 +419,120 @@ namespace QuestAppLauncher
             Dictionary<string, ProcessedApp> apps,
             Dictionary<string, string> iconOverrides)
         {
-            // Destroy existing scrollviews and tabs
-            for (int i = 0; i < this.tabContainer.transform.childCount; i++)
+            // Set up tabs
+            var topTabs = new List<string>();
+            var leftTabs = new List<string>();
+            var rightTabs = new List<string>();
+
+            // Set auto tabs
+            if (config.autoCategory.Equals(Config.Category_Top, StringComparison.OrdinalIgnoreCase))
             {
-                Destroy(this.tabContainer.transform.GetChild(i).gameObject);
-                Destroy(this.scrollContainer.transform.GetChild(i).gameObject);
+                topTabs.AddRange(Auto_Tabs);
+            }
+            else if (config.autoCategory.Equals(Config.Category_Left, StringComparison.OrdinalIgnoreCase))
+            {
+                leftTabs.AddRange(Auto_Tabs);
+            }
+            else if (config.autoCategory.Equals(Config.Category_Right, StringComparison.OrdinalIgnoreCase))
+            {
+                rightTabs.AddRange(Auto_Tabs);
             }
 
-            List<string> tabs;
-            bool isNoneTab = false;
-            bool isAutoTab = false;
+            // Set custom tabs, sorted alphabetically
+            var customTabs = apps.Where(x => null != x.Value.Tab1Name).Select(x => x.Value.Tab1Name).Union(apps
+                .Where(x => null != x.Value.Tab2Name).Select(x => x.Value.Tab2Name))
+                .Distinct(StringComparer.CurrentCultureIgnoreCase).ToList();
+            customTabs.Sort();
 
-            if (config.categoryType.Equals(Config.Category_None, StringComparison.OrdinalIgnoreCase))
+            if (config.customCategory.Equals(Config.Category_Top, StringComparison.OrdinalIgnoreCase))
             {
-                // No tabs - use special "None" tab
-                tabs = new List<string>();
-                tabs.Add(Tab_None);
-                isNoneTab = true;
+                topTabs.AddRange(customTabs);
             }
-            else if (config.categoryType.Equals(Config.Category_Auto, StringComparison.OrdinalIgnoreCase))
+            else if (config.customCategory.Equals(Config.Category_Left, StringComparison.OrdinalIgnoreCase))
             {
-                // Add built-in tabs
-                tabs = new List<string>();
-                tabs.Add(Tab_Quest);
-                tabs.Add(Tab_Go);
-                tabs.Add(Tab_2D);
-                isAutoTab = true;
+                leftTabs.AddRange(customTabs);
+            }
+            else if (config.customCategory.Equals(Config.Category_Right, StringComparison.OrdinalIgnoreCase))
+            {
+                rightTabs.AddRange(customTabs);
+            }
+
+            // Add the "all" top tab
+            topTabs.Add(Tab_All);
+
+            // Process the tab containers
+            var gridContents = new Dictionary<string, GameObject>(StringComparer.OrdinalIgnoreCase);
+
+            ProcessTabContainer(config, topTabs, this.topTabContainer, this.topTabContainerContent, true, gridContents);
+            ProcessTabContainer(config, leftTabs, this.leftTabContainer, this.leftTabContainerContent, false, gridContents);
+            ProcessTabContainer(config, rightTabs, this.rightTabContainer, this.rightTabContainerContent, false, gridContents);
+
+            // Set panel size, use any grid content for reference (since they are all the same size)
+            if (gridContents.Count > 0)
+            {
+                var size = SetGridSize(gridContents.First().Value, config.gridSize.rows, config.gridSize.cols);
+
+                // Adjust tab sizes
+                ResizeTabContent(this.topTabContainer.transform, size, topTabs.Count, true);
+                ResizeTabContent(this.leftTabContainer.transform, size, leftTabs.Count, false);
+                ResizeTabContent(this.rightTabContainer.transform, size, rightTabs.Count, false);
+            }
+
+            // Populate grid with app information (name & icon)
+            // Sort by app name
+            foreach (var app in apps.OrderBy(key => key.Value.AppName))
+            {
+                // Add to all tab
+                yield return AddCellToGrid(app.Value, gridContents[Tab_All].transform, iconOverrides, currentActivity);
+
+                // Add to auto (built-in) tabs
+                if (gridContents.ContainsKey(app.Value.AutoTabName))
+                {
+                    yield return AddCellToGrid(app.Value, gridContents[app.Value.AutoTabName].transform, iconOverrides, currentActivity);
+                }
+
+                // Add to tab1
+                if (null != app.Value.Tab1Name && gridContents.ContainsKey(app.Value.Tab1Name))
+                {
+                    yield return AddCellToGrid(app.Value, gridContents[app.Value.Tab1Name].transform, iconOverrides, currentActivity);
+                }
+
+                // Add to tab2
+                if (null != app.Value.Tab2Name && gridContents.ContainsKey(app.Value.Tab2Name))
+                {
+                    yield return AddCellToGrid(app.Value, gridContents[app.Value.Tab2Name].transform, iconOverrides, currentActivity);
+                }
+            }
+        }
+
+        private void ResizeTabContent(Transform transform, Vector2 size, int childCount, bool isHorizontal)
+        {
+            var rect = transform.GetComponent<RectTransform>();
+
+            // Resize the transform
+            Vector2 newSize;
+            if (isHorizontal)
+            {
+                newSize = new Vector2(size.x, rect.rect.height);
             }
             else
             {
-                // Construct list of custom tabs, sorted alphabetically and add built-in tabs up front
-                tabs = apps.Select(x => x.Value.Tab1Name).Union(
-                    apps.Where(x => null != x.Value.Tab2Name).Select(x => x.Value.Tab2Name)).Distinct().ToList();
-                tabs.Sort();
-                if (tabs.Remove(Tab_2D))
-                {
-                    tabs.Insert(0, Tab_2D);
-                }
-                if (tabs.Remove(Tab_Go))
-                {
-                    tabs.Insert(0, Tab_Go);
-                }
-                if (tabs.Remove(Tab_Quest))
-                {
-                    tabs.Insert(0, Tab_Quest);
-                }
+                newSize = new Vector2(rect.rect.width, size.y);
             }
 
-            var gridContents = new Dictionary<string, GameObject>();
-            bool isFirstTab = true;
+            rect.sizeDelta = newSize;
 
+            // Resize box collider
+            var boxCollider = transform.GetComponent<BoxCollider>();
+            boxCollider.size = new Vector3(newSize.x, newSize.y, (float)0.05);
+
+            // Refresh tab prev / next buttons
+            transform.gameObject.GetComponent<ScrollButtonHandler>().RefreshScrollContent(childCount);
+        }
+
+        private void ProcessTabContainer(Config config, List<string> tabs, GameObject tabContainer,
+            GameObject tabContainerContent, bool setFirstTabActive, Dictionary<string, GameObject> gridContents)
+        {
             // Create scroll views and tabs
             foreach (string tabName in tabs)
             {
@@ -444,68 +542,23 @@ namespace QuestAppLauncher
                 var scrollView = (GameObject)Instantiate(this.prefabScrollView, this.scrollContainer.transform);
                 var scrollRectOverride = scrollView.GetComponent<ScrollRectOverride>();
                 scrollRectOverride.trackingSpace = this.trackingSpace.transform;
-                scrollRectOverride.name = tabName;
 
                 var gridContent = scrollRectOverride.content.gameObject;
-                scrollView.SetActive(isFirstTab);
-
-                // Set grid size
-                SetGridSize(gridContent, config.gridSize.rows, config.gridSize.cols);
+                scrollView.SetActive(setFirstTabActive);
 
                 // Create tab
-                var tab = (GameObject)Instantiate(this.prefabTab, this.tabContainer.transform);
+                var tab = (GameObject)Instantiate(this.prefabTab, tabContainerContent.transform);
                 tab.GetComponentInChildren<TextMeshProUGUI>().text = tabName;
 
                 var toggle = tab.GetComponent<Toggle>();
-                toggle.isOn = isFirstTab;
-                toggle.group = this.tabContainer.GetComponent<ToggleGroup>();
+                toggle.isOn = setFirstTabActive;
+                toggle.group = this.panelContainer.GetComponent<ToggleGroup>();
                 toggle.onValueChanged.AddListener(scrollView.SetActive);
 
-                if (isNoneTab)
-                {
-                    // Hide the special "None" tab
-                    tab.SetActive(false);
-                }
-
-                isFirstTab = false;
+                setFirstTabActive = false;
 
                 // Record the grid content
                 gridContents[tabName] = scrollView.GetComponent<ScrollRect>().content.gameObject;
-            }
-
-            // Populate grid with app information (name & icon)
-            // Sort by app name
-            foreach (var app in apps.OrderBy(key => key.Value.AppName))
-            {
-                if (config.showOnlyCustom && !app.Value.IsOverride)
-                {
-                    // Since showOnlyCustom is set, skip apps that are not in the appnames.txt file
-                    Debug.LogFormat("Skipping non-Show Only Custom [{0}] Package: {1}, name: {2}",
-                        app.Value.Index, app.Value.PackageName, app.Value.AppName);
-                    continue;
-                }
-
-                if (isNoneTab)
-                {
-                    // No tabs, so use the special "None" tab
-                    yield return AddCellToGrid(app.Value, gridContents[Tab_None].transform, iconOverrides, currentActivity);
-                }
-                else if (isAutoTab)
-                {
-                    // Add to auto (built-in) tabs
-                    yield return AddCellToGrid(app.Value, gridContents[app.Value.AutoTabName].transform, iconOverrides, currentActivity);
-                }
-                else
-                {
-                    // Add to tab1
-                    yield return AddCellToGrid(app.Value, gridContents[app.Value.Tab1Name].transform, iconOverrides, currentActivity);
-
-                    if (null != app.Value.Tab2Name)
-                    {
-                        // Tab2 exists, so add to tab2
-                        yield return AddCellToGrid(app.Value, gridContents[app.Value.Tab2Name].transform, iconOverrides, currentActivity);
-                    }
-                }
             }
         }
 

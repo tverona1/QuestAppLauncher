@@ -12,10 +12,11 @@ namespace QuestAppLauncher
     [Serializable]
     public class Config
     {
-        // Supported category types
-        public const string Category_None = "none";
-        public const string Category_Auto = "auto";
-        public const string Category_Custom = "custom";
+        // Supported category mode
+        public const string Category_Off = "off";
+        public const string Category_Top = "top";
+        public const string Category_Left = "left";
+        public const string Category_Right = "right";
 
         /// <summary>
         /// Grid size
@@ -33,16 +34,11 @@ namespace QuestAppLauncher
         // Whether to show 2D apps
         public bool show2D = false;
 
-        // Whether to only show apps that are explicitly specified in appnames.txt file.
-        // If true, this will not show installed apps that are not in appnames.txt. This
-        // is useful for organizing the launcher with a highly curated list of apps.
-        public bool showOnlyCustom = false;
+        // Auto Category: Apps are automatically categorized into 3 tabs - Quest, Go/GearVr, 2D
+        public string autoCategory = Category_Top;
 
-        // Category types: "none", "auto", "custom":
-        //  - none: No categories - all apps are listed in a single pane
-        //  - auto: Apps are automatically categorized into 3 tabs - Quest, Go/GearVr, 2D
-        //  - custom: Apps are categorized according to appnames.txt file
-        public string categoryType = Category_Auto;
+        // Custom Category: Apps are categorized according to appnames.txt file
+        public string customCategory = Category_Right;
     }
 
     /// <summary>

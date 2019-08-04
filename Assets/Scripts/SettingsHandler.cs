@@ -20,11 +20,16 @@ namespace QuestAppLauncher
         public GameObject gridRowsText;
         public GameObject gridPopulation;
         public GameObject show2DToggle;
-        public GameObject showOnlyCustomToggle;
 
-        public Toggle tabsNone;
-        public Toggle tabsAuto;
-        public Toggle tabsCustom;
+        public Toggle tabsAutoOff;
+        public Toggle tabsAutoTop;
+        public Toggle tabsAutoLeft;
+        public Toggle tabsAutoRight;
+
+        public Toggle tabsCustomOff;
+        public Toggle tabsCustomTop;
+        public Toggle tabsCustomLeft;
+        public Toggle tabsCustomRight;
 
         private bool deletedHiddenAppsFile = false;
 
@@ -56,21 +61,40 @@ namespace QuestAppLauncher
             // Set 2D toggle
             this.show2DToggle.GetComponent<Toggle>().SetIsOnWithoutNotify(this.config.show2D);
 
-            // Set ShowOnlyCustom toggle
-            this.showOnlyCustomToggle.GetComponent<Toggle>().SetIsOnWithoutNotify(this.config.showOnlyCustom);
-            
-            // Set tab mode
-            if (this.config.categoryType.Equals(Config.Category_None, StringComparison.OrdinalIgnoreCase))
+            // Set auto tab mode
+            if (this.config.autoCategory.Equals(Config.Category_Top, StringComparison.OrdinalIgnoreCase))
             {
-                this.tabsNone.isOn = true;
+                this.tabsAutoTop.isOn = true;
             }
-            else if (this.config.categoryType.Equals(Config.Category_Auto, StringComparison.OrdinalIgnoreCase))
+            else if (this.config.autoCategory.Equals(Config.Category_Left, StringComparison.OrdinalIgnoreCase))
             {
-                this.tabsAuto.isOn = true;
+                this.tabsAutoLeft.isOn = true;
+            }
+            else if (this.config.autoCategory.Equals(Config.Category_Right, StringComparison.OrdinalIgnoreCase))
+            {
+                this.tabsAutoRight.isOn = true;
             }
             else
             {
-                this.tabsCustom.isOn = true;
+                this.tabsAutoOff.isOn = true;
+            }
+
+            // Set custom tab mode
+            if (this.config.customCategory.Equals(Config.Category_Top, StringComparison.OrdinalIgnoreCase))
+            {
+                this.tabsCustomTop.isOn = true;
+            }
+            else if (this.config.customCategory.Equals(Config.Category_Left, StringComparison.OrdinalIgnoreCase))
+            {
+                this.tabsCustomLeft.isOn = true;
+            }
+            else if (this.config.customCategory.Equals(Config.Category_Right, StringComparison.OrdinalIgnoreCase))
+            {
+                this.tabsCustomRight.isOn = true;
+            }
+            else
+            {
+                this.tabsCustomOff.isOn = true;
             }
         }
 
@@ -134,33 +158,53 @@ namespace QuestAppLauncher
                 saveConfig = true;
             }
 
-            // Update ShowOnlyCustom toggle
-            var showOnlyCustom = this.showOnlyCustomToggle.GetComponent<Toggle>().isOn;
-            if (showOnlyCustom != this.config.showOnlyCustom)
+            // Update auto tab mode
+            string tabAutoMode;
+            if (this.tabsAutoTop.isOn)
             {
-                this.config.showOnlyCustom = showOnlyCustom;
-                saveConfig = true;
+                tabAutoMode = Config.Category_Top;
             }
-
-            // Update tabbing
-            string tabMode;
-            if (this.tabsNone.isOn)
+            else if (this.tabsAutoLeft.isOn)
             {
-                tabMode = Config.Category_None;
+                tabAutoMode = Config.Category_Left;
             }
-            else if (this.tabsAuto.isOn)
+            else if (this.tabsAutoRight.isOn)
             {
-                tabMode = Config.Category_Auto;
+                tabAutoMode = Config.Category_Right;
             }
             else
             {
-                tabMode = Config.Category_Custom;
+                tabAutoMode = Config.Category_Off;
             }
 
-            if (!this.config.categoryType.Equals(tabMode, StringComparison.OrdinalIgnoreCase))
+            if (!this.config.autoCategory.Equals(tabAutoMode, StringComparison.OrdinalIgnoreCase))
             {
-                this.tabsNone.isOn = true;
-                this.config.categoryType = tabMode;
+                this.config.autoCategory = tabAutoMode;
+                saveConfig = true;
+            }
+
+            // Update auto tab mode
+            string tabCustomMode;
+            if (this.tabsCustomTop.isOn)
+            {
+                tabCustomMode = Config.Category_Top;
+            }
+            else if (this.tabsCustomLeft.isOn)
+            {
+                tabCustomMode = Config.Category_Left;
+            }
+            else if (this.tabsCustomRight.isOn)
+            {
+                tabCustomMode = Config.Category_Right;
+            }
+            else
+            {
+                tabCustomMode = Config.Category_Off;
+            }
+
+            if (!this.config.customCategory.Equals(tabCustomMode, StringComparison.OrdinalIgnoreCase))
+            {
+                this.config.customCategory = tabCustomMode;
                 saveConfig = true;
             }
 
@@ -174,7 +218,7 @@ namespace QuestAppLauncher
             if (saveConfig || deletedHiddenAppsFile)
             {
                 Debug.Log("Re-populating panel");
-                this.gridPopulation.GetComponent<GridPopulation>().StartPopulate();
+                SceneManager.LoadScene(SceneManager.GetActiveScene().name);
             }
         }
     }
