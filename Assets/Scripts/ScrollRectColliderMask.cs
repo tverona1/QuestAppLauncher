@@ -26,11 +26,6 @@ public class ScrollRectColliderMask : MonoBehaviour
         this.boxCollider = GetComponent<BoxCollider>();
     }
 
-    public void Refresh()
-    {
-        this.isInBounds = true;
-    }
-
     // Update is called once per frame
     void Update()
     {

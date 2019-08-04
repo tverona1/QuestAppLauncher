@@ -20,8 +20,11 @@ namespace QuestAppLauncher
         [Tooltip("Button to go to the next page")]
         public Button NextButton;
 
-        // Width of child object
-        private float childWidth;
+        [Tooltip("Whether tabs are horizontal (true) or vertical (false)")]
+        public bool isHorizontal;
+
+        // Size of child object (either width or height)
+        private float childSize;
 
         // Current rect transform
         private RectTransform rectTransform;
@@ -29,7 +32,6 @@ namespace QuestAppLauncher
         private const float CmToInch = 2.54f;
         private const float DragThresholdCM = 50f;
 
-        // Start is called before the first frame update
         void Start()
         {
             this.PrevButton.onClick.AddListener(() => { ScrollPrev(); });
@@ -39,7 +41,8 @@ namespace QuestAppLauncher
             this.NextButton.gameObject.SetActive(false);
 
             this.rectTransform = GetComponent<RectTransform>();
-            this.childWidth = this.prefabChild.GetComponent<RectTransform>().sizeDelta.x;
+            this.childSize = this.isHorizontal ? this.prefabChild.GetComponent<RectTransform>().sizeDelta.x :
+                this.prefabChild.GetComponent<RectTransform>().sizeDelta.y;
 
             RefreshScrollContent(0);
 
@@ -56,9 +59,11 @@ namespace QuestAppLauncher
         {
             Canvas.ForceUpdateCanvases();
 
-            float contentSize = numChildren * this.childWidth;
+            float contentSize = numChildren * this.childSize;
+            var recTransformSize = this.isHorizontal ? this.rectTransform.sizeDelta.x :
+                this.rectTransform.sizeDelta.y;
 
-            if (this.rectTransform.sizeDelta.x >= contentSize)
+            if (recTransformSize >= contentSize)
             {
                 // Viewport can fit the content, so hide the buttons
                 this.PrevButton.gameObject.SetActive(false);
@@ -81,17 +86,37 @@ namespace QuestAppLauncher
 
         public void ScrollPrev()
         {
-            Vector2 newPosition = new Vector2(this.content.transform.localPosition.x + this.childWidth,
+            Vector2 newPosition;
+
+            if (this.isHorizontal)
+            {
+                newPosition = new Vector2(this.content.transform.localPosition.x + this.childSize,
                 this.content.transform.localPosition.y);
+            }
+            else
+            {
+                newPosition = new Vector2(this.content.transform.localPosition.x,
+                this.content.transform.localPosition.y - this.childSize);
+            }
             this.content.transform.localPosition = newPosition;
-            this.NextButton.interactable = true;
         }
 
         public void ScrollNext()
         {
-            Vector2 newPosition = new Vector2(this.content.transform.localPosition.x - this.childWidth, this.content.transform.localPosition.y);
+            Vector2 newPosition = new Vector2(this.content.transform.localPosition.x - this.childSize, this.content.transform.localPosition.y);
+            
+            if (this.isHorizontal)
+            {
+                newPosition = new Vector2(this.content.transform.localPosition.x - this.childSize,
+                    this.content.transform.localPosition.y);
+            }
+            else
+            {
+                newPosition = new Vector2(this.content.transform.localPosition.x,
+                    this.content.transform.localPosition.y + this.childSize);
+            }
+
             this.content.transform.localPosition = newPosition;
-            this.PrevButton.interactable = true;
         }
     }
 }
