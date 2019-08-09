@@ -39,7 +39,7 @@ namespace QuestAppLauncher
             {
                 // Launch app
                 Debug.Log("Launching: " + appEntry.appName + " (package id: " + appEntry.packageId + ")");
-                QuestAppLauncher.GridPopulation.LaunchApp(appEntry.packageId);
+                AppProcessor.LaunchApp(appEntry.packageId);
             }
         }
 
@@ -50,7 +50,7 @@ namespace QuestAppLauncher
             {
                 // Add package name to excluded file
                 Debug.Log("Hiding: " + appEntry.appName + " (package id: " + appEntry.packageId + ")");
-                QuestAppLauncher.GridPopulation.AddAppToExcludedFile(appEntry.packageId);
+                AppProcessor.AddAppToExcludedFile(appEntry.packageId);
 
                 // Remove ourselves from the gridview
                 Destroy(t.gameObject);

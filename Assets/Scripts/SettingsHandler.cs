@@ -116,7 +116,7 @@ namespace QuestAppLauncher
 
             if (!this.deletedHiddenAppsFile)
             {
-                this.deletedHiddenAppsFile = QuestAppLauncher.GridPopulation.DeleteExcludedAppsFile();
+                this.deletedHiddenAppsFile = AppProcessor.DeleteExcludedAppsFile();
             }
         }
 
