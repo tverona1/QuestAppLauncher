@@ -3,6 +3,7 @@ using System.Collections;
 using System.Collections.Generic;
 using System.IO;
 using System.Linq;
+using System.Threading.Tasks;
 using UnityEngine;
 using UnityEngine.UI;
 using UnityEngine.XR;
@@ -24,7 +25,7 @@ namespace QuestAppLauncher
             public string AutoTabName;
             public string Tab1Name;
             public string Tab2Name;
-            public bool IsOverride;
+            public string IconPath;
         }
 
         // File name of app name overrides
@@ -64,9 +65,6 @@ namespace QuestAppLauncher
         // Tab prefab
         public GameObject prefabTab;
 
-        // Reference to executing populate routine
-        private Coroutine populateCoroutine;
-
         // Built-in tab names
         private const string Tab_Quest = "Quest";
         private const string Tab_Go = "Go/Gear";
@@ -77,7 +75,7 @@ namespace QuestAppLauncher
 
         #region MonoBehaviour handler
 
-        void Start()
+        async void Start()
         {
             // Set high texture resolution scale to minimize aliasing
             XRSettings.eyeTextureResolutionScale = 2.0f;
@@ -86,7 +84,7 @@ namespace QuestAppLauncher
             Core.AsyncInitialize();
 
             // Populate the grid
-            StartPopulate();
+            await PopulateAsync();
         }
 
         void Update()
@@ -206,36 +204,47 @@ namespace QuestAppLauncher
             return size;
         }
 
-        public void StartPopulate()
-        {
-            // Ensure we only exeucte on populate routine at a time
-            if (null != this.populateCoroutine)
-            {
-                StopCoroutine(this.populateCoroutine);
-            }
-
-            this.populateCoroutine = this.StartCoroutine(Populate());
-        }
-
         /// <summary>
         /// Populate the grid from installed apps
         /// </summary>
         /// <returns></returns>
-        private IEnumerator Populate()
+        private async Task PopulateAsync()
         {
-            var persistentDataPath = UnityEngine.Application.persistentDataPath;
-            Debug.Log("Persistent data path: " + persistentDataPath);
-
             // Load configuration
             Config config = new Config();
             ConfigPersistence.LoadConfig(config);
 
+            // Process apps in background
+            var apps = await Task.Run(() =>
+            {
+                AndroidJNI.AttachCurrentThread();
+
+                try
+                {
+                    return ProcessApps(config);
+                }
+                finally
+                {
+                    AndroidJNI.DetachCurrentThread();
+                }
+            });
+
+            // Populate the panel content
+            await PopulatePanelContentAsync(config, apps);
+        }
+
+        private Dictionary<string, ProcessedApp> ProcessApps(Config config)
+        {
+            var persistentDataPath = UnityEngine.Application.persistentDataPath;
+            Debug.Log("Persistent data path: " + persistentDataPath);
+
+            // Dictionary to hold package name -> app index, app name
+            var apps = new Dictionary<string, ProcessedApp>();
+            var excludedPackageNames = new HashSet<string>();
+
             using (AndroidJavaClass unity = new AndroidJavaClass("com.unity3d.player.UnityPlayer"))
             using (AndroidJavaObject currentActivity = unity.GetStatic<AndroidJavaObject>("currentActivity"))
             {
-                // Dictionary to hold package name -> app index, app name
-                var apps = new Dictionary<string, ProcessedApp>();
-                var excludedPackageNames = new HashSet<string>();
 
                 // Get # of installed apps
                 int numApps = currentActivity.Call<int>("getSize");
@@ -296,7 +305,6 @@ namespace QuestAppLauncher
 
                     apps.Add(packageName, new ProcessedApp { PackageName = packageName, Index = i, AutoTabName = tabName, AppName = appName });
                     Debug.LogFormat("[{0}] package: {1}, name: {2}, auto tab: {3}", i, packageName, appName, tabName);
-                    yield return null;
                 }
 
                 // Override app names, if any
@@ -376,7 +384,6 @@ namespace QuestAppLauncher
                             AutoTabName = autoTabName ?? apps[entry[0]].AutoTabName,
                             Tab1Name = tab1 ?? apps[entry[0]].Tab1Name,
                             Tab2Name = tab2 ?? apps[entry[0]].Tab2Name,
-                            IsOverride = true
                         };
                     }
                 }
@@ -385,12 +392,9 @@ namespace QuestAppLauncher
                     Debug.Log("Did not find: " + appNameOverrideFilePath);
                 }
 
-                yield return null;
-
                 // Load list of app icon overrides
                 // This is a list of jpg images stored as packageName.jpg.
                 var iconOverridePath = persistentDataPath;
-                var iconOverrides = new Dictionary<string, string>();
                 if (Directory.Exists(iconOverridePath))
                 {
                     foreach (var iconFileName in Directory.GetFiles(iconOverridePath, IconOverrideExtSearch))
@@ -398,26 +402,22 @@ namespace QuestAppLauncher
                         var entry = Path.GetFileNameWithoutExtension(iconFileName);
                         if (apps.ContainsKey(entry))
                         {
-                            Debug.Log("Found file: " + iconFileName);
-                            iconOverrides[entry] = Path.Combine(iconOverridePath, iconFileName);
-                        }
+                            Debug.Log("Found icon override: " + iconFileName);
 
-                        yield return null;
+                            ProcessedApp newProcessedApp = apps[entry];
+                            newProcessedApp.IconPath = Path.Combine(iconOverridePath, iconFileName);
+                            apps[entry] = newProcessedApp;
+                        }
                     }
                 }
-
-                yield return null;
-
-                // Populate the panel content
-                yield return PopulatePanelContent(currentActivity, config, apps, iconOverrides);
             }
+
+            return apps;
         }
 
-        private IEnumerator PopulatePanelContent(
-            AndroidJavaObject currentActivity,
+        private async Task PopulatePanelContentAsync(
             Config config,
-            Dictionary<string, ProcessedApp> apps,
-            Dictionary<string, string> iconOverrides)
+            Dictionary<string, ProcessedApp> apps)
         {
             // Set up tabs
             var topTabs = new List<string>();
@@ -483,24 +483,24 @@ namespace QuestAppLauncher
             foreach (var app in apps.OrderBy(key => key.Value.AppName))
             {
                 // Add to all tab
-                yield return AddCellToGrid(app.Value, gridContents[Tab_All].transform, iconOverrides, currentActivity);
+                await AddCellToGridAsync(app.Value, gridContents[Tab_All].transform);
 
                 // Add to auto (built-in) tabs
                 if (gridContents.ContainsKey(app.Value.AutoTabName))
                 {
-                    yield return AddCellToGrid(app.Value, gridContents[app.Value.AutoTabName].transform, iconOverrides, currentActivity);
+                    await AddCellToGridAsync(app.Value, gridContents[app.Value.AutoTabName].transform);
                 }
 
                 // Add to tab1
                 if (null != app.Value.Tab1Name && gridContents.ContainsKey(app.Value.Tab1Name))
                 {
-                    yield return AddCellToGrid(app.Value, gridContents[app.Value.Tab1Name].transform, iconOverrides, currentActivity);
+                    await AddCellToGridAsync(app.Value, gridContents[app.Value.Tab1Name].transform);
                 }
 
                 // Add to tab2
                 if (null != app.Value.Tab2Name && gridContents.ContainsKey(app.Value.Tab2Name))
                 {
-                    yield return AddCellToGrid(app.Value, gridContents[app.Value.Tab2Name].transform, iconOverrides, currentActivity);
+                    await AddCellToGridAsync(app.Value, gridContents[app.Value.Tab2Name].transform);
                 }
             }
         }
@@ -562,9 +562,39 @@ namespace QuestAppLauncher
             }
         }
 
-        private IEnumerator AddCellToGrid(ProcessedApp app, Transform transform,
-            Dictionary<string, string> iconOverrides,
-            AndroidJavaObject currentActivity)
+        private byte[] GetAppIcon(string iconPath, int appIndex)
+        {
+            byte[] bytesIcon = null;
+            bool useApkIcon = true;
+            if (null != iconPath)
+            {
+                // Use overridden icon
+                try
+                {
+                    bytesIcon = File.ReadAllBytes(iconPath);
+                    useApkIcon = false;
+                }
+                catch (Exception e)
+                {
+                    // Fall back to using the apk icon
+                    Debug.Log(string.Format("Error reading app icon from file [{0}]: {1}", iconPath, e.Message));
+                }
+            }
+
+            if (useApkIcon)
+            {
+                // Use built-in icon from the apk
+                using (AndroidJavaClass unity = new AndroidJavaClass("com.unity3d.player.UnityPlayer"))
+                using (AndroidJavaObject currentActivity = unity.GetStatic<AndroidJavaObject>("currentActivity"))
+                {
+                    bytesIcon = (byte[])(Array)currentActivity.Call<sbyte[]>("getIcon", appIndex);
+                }
+            }
+
+            return bytesIcon;
+        }
+
+        private async Task AddCellToGridAsync(ProcessedApp app, Transform transform)
         {
             // Create new instances of our app info prefabCell
             var newObj = (GameObject)Instantiate(this.prefabCell, transform);
@@ -574,44 +604,36 @@ namespace QuestAppLauncher
             appEntry.packageId = app.PackageName;
             appEntry.appName = app.AppName;
 
-            // Get app icon
-            byte[] bytesIcon = null;
-            bool useApkIcon = true;
-            if (iconOverrides.ContainsKey(app.PackageName))
+            // Get app icon in background
+            var bytesIcon = await Task.Run(() =>
             {
-                // Use overridden icon
+                AndroidJNI.AttachCurrentThread();
+
                 try
                 {
-                    bytesIcon = File.ReadAllBytes(iconOverrides[app.PackageName]);
-                    useApkIcon = false;
+                    return GetAppIcon(app.IconPath, app.Index);
                 }
-                catch (Exception e)
+                finally
                 {
-                    // Fall back to using the apk icon
-                    Debug.Log(string.Format("Error reading app icon from file [{0}]: {1}", iconOverrides[app.PackageName], e.Message));
+                    AndroidJNI.DetachCurrentThread();
                 }
-            }
-
-            if (useApkIcon)
-            {
-                // Use built-in icon from the apk
-                bytesIcon = (byte[])(Array)currentActivity.Call<sbyte[]>("getIcon", app.Index);
-            }
+            });
 
             // Set the icon image
-            var image = newObj.transform.Find("AppIcon").GetComponentInChildren<Image>();
-            var texture = new Texture2D(2, 2, TextureFormat.RGB24, false);
-            texture.filterMode = FilterMode.Trilinear;
-            texture.anisoLevel = 16;
-            texture.LoadImage(bytesIcon);
-            var rect = new Rect(0, 0, texture.width, texture.height);
-            image.sprite = Sprite.Create(texture, rect, new Vector2(0.5f, 0.5f));
+            if (null != bytesIcon)
+            {
+                var image = newObj.transform.Find("AppIcon").GetComponentInChildren<Image>();
+                var texture = new Texture2D(2, 2, TextureFormat.RGB24, false);
+                texture.filterMode = FilterMode.Trilinear;
+                texture.anisoLevel = 16;
+                texture.LoadImage(bytesIcon);
+                var rect = new Rect(0, 0, texture.width, texture.height);
+                image.sprite = Sprite.Create(texture, rect, new Vector2(0.5f, 0.5f));
+            }
 
             // Set app name in text
             var text = newObj.transform.Find("AppName").GetComponentInChildren<TextMeshProUGUI>();
             text.text = app.AppName;
-
-            yield return null;
         }
     }
     #endregion
