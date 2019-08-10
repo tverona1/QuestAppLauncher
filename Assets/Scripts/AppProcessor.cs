@@ -21,10 +21,16 @@ namespace QuestAppLauncher
     public class AppProcessor
     {
         // File name of app name overrides
-        const string AppNameOverrideFile = "appnames.txt";
+        const string AppNameOverrideFileSearch = "appnames*.txt";
 
         // File name of excluded package names
         const string ExcludedPackagesFile = "excludedpackages.txt";
+
+        // Icon pack search string
+        const string IconPackSearch = "iconpack*.zip";
+
+        // Icon pack extraction dir
+        const string IconPackExtractionDir = "cache";
 
         // Extension search for icon overrides
         const string IconOverrideExtSearch = "*.jpg";
@@ -43,8 +49,8 @@ namespace QuestAppLauncher
             Debug.Log("Persistent data path: " + persistentDataPath);
 
             // Dictionary to hold package name -> app index, app name
-            var apps = new Dictionary<string, ProcessedApp>();
-            var excludedPackageNames = new HashSet<string>();
+            var apps = new Dictionary<string, ProcessedApp>(StringComparer.OrdinalIgnoreCase);
+            var excludedPackageNames = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
 
             using (AndroidJavaClass unity = new AndroidJavaClass("com.unity3d.player.UnityPlayer"))
             using (AndroidJavaObject currentActivity = unity.GetStatic<AndroidJavaObject>("currentActivity"))
@@ -111,112 +117,198 @@ namespace QuestAppLauncher
                     Debug.LogFormat("[{0}] package: {1}, name: {2}, auto tab: {3}", i, packageName, appName, tabName);
                 }
 
-                // Override app names, if any
-                // This is just a file with comma-separated packageName,appName[,category1[, category2]]
-                // Category1 and category2 are optional categories (tabs).
-                var appNameOverrideFilePath = Path.Combine(persistentDataPath, AppNameOverrideFile);
-                if (File.Exists(appNameOverrideFilePath))
+                // Process appname*.txt files, sorted by name
+                foreach (var appNameOverrideFilePath in Directory.GetFiles(
+                    persistentDataPath, AppNameOverrideFileSearch).OrderBy(f => f))
                 {
-                    Debug.Log("Found file: " + appNameOverrideFilePath);
-                    string[] lines = File.ReadAllLines(appNameOverrideFilePath);
-                    foreach (string line in lines)
-                    {
-                        line.Trim();
-
-                        if (line.StartsWith("#"))
-                        {
-                            // Skip comments
-                            continue;
-                        }
-
-                        // Parse line
-                        var entry = line.Split(',');
-                        if (entry.Length < 2)
-                        {
-                            // We expect at least two entries
-                            continue;
-                        }
-
-                        var packageName = entry[0];
-                        var appName = entry[1];
-
-                        if (!apps.ContainsKey(packageName))
-                        {
-                            // App is not installed, so skip
-                            continue;
-                        }
-
-                        // Get the custom tab names, if any
-                        string autoTabName = null;
-                        var tab1 = entry.Length > 2 ? entry[2] : null;
-                        var tab2 = entry.Length > 3 ? entry[3] : null;
-
-                        if (tab1 != null && tab1.Length == 0)
-                        {
-                            tab1 = null;
-                        }
-
-                        if (tab2 != null && tab2.Length == 0)
-                        {
-                            tab2 = null;
-                        }
-
-                        if (tab1 != null && tab2 != null && tab1.Equals(tab2, StringComparison.OrdinalIgnoreCase))
-                        {
-                            tab2 = null;
-                        }
-
-                        // Override auto tabe name if custom name matches built-in tab name
-                        if (tab1 != null && Auto_Tabs.Contains(tab1, StringComparer.OrdinalIgnoreCase))
-                        {
-                            autoTabName = tab1;
-                            tab1 = null;
-                        }
-
-                        if (tab2 != null && Auto_Tabs.Contains(tab2, StringComparer.OrdinalIgnoreCase))
-                        {
-                            autoTabName = tab2;
-                            tab2 = null;
-                        }
-
-                        // Update entry
-                        apps[packageName] = new ProcessedApp
-                        {
-                            PackageName = apps[entry[0]].PackageName,
-                            Index = apps[entry[0]].Index,
-                            AppName = appName,
-                            AutoTabName = autoTabName ?? apps[entry[0]].AutoTabName,
-                            Tab1Name = tab1 ?? apps[entry[0]].Tab1Name,
-                            Tab2Name = tab2 ?? apps[entry[0]].Tab2Name,
-                        };
-                    }
-                }
-                else
-                {
-                    Debug.Log("Did not find: " + appNameOverrideFilePath);
+                    ProcessAppNameOverrideFile(apps, appNameOverrideFilePath);
                 }
 
-                // Load list of app icon overrides
-                // This is a list of jpg images stored as packageName.jpg.
+                // Extract icon packs
+                ExtractIconPacks(currentActivity);
+
+                // Process extracted icons
+                ProcessExtractedIcons(apps);
+
+                // Process any individual icons
                 var iconOverridePath = persistentDataPath;
-                if (Directory.Exists(iconOverridePath))
+                if (Directory.Exists(persistentDataPath))
                 {
-                    foreach (var iconFileName in Directory.GetFiles(iconOverridePath, IconOverrideExtSearch))
-                    {
-                        var entry = Path.GetFileNameWithoutExtension(iconFileName);
-                        if (apps.ContainsKey(entry))
-                        {
-                            Debug.Log("Found icon override: " + iconFileName);
-
-                            ProcessedApp newProcessedApp = apps[entry];
-                            newProcessedApp.IconPath = Path.Combine(iconOverridePath, iconFileName);
-                            apps[entry] = newProcessedApp;
-                        }
-                    }
+                    ProcessIconsInPath(apps, persistentDataPath);
                 }
             }
 
             return apps;
+        }
+
+        private static void ProcessAppNameOverrideFile(Dictionary<string, ProcessedApp> apps, string appNameOverrideFilePath)
+        {
+            // Override app names, if any
+            // This is just a file with comma-separated packageName,appName[,category1[, category2]]
+            // Category1 and category2 are optional categories (tabs).
+            Debug.Log("Found file: " + appNameOverrideFilePath);
+
+            string[] lines = File.ReadAllLines(appNameOverrideFilePath);
+            foreach (string line in lines)
+            {
+                line.Trim();
+
+                if (line.StartsWith("#"))
+                {
+                    // Skip comments
+                    continue;
+                }
+
+                // Parse line
+                var entry = line.Split(',');
+                if (entry.Length < 2)
+                {
+                    // We expect at least two entries
+                    continue;
+                }
+
+                var packageName = entry[0];
+                var appName = entry[1];
+
+                if (!apps.ContainsKey(packageName))
+                {
+                    // App is not installed, so skip
+                    continue;
+                }
+
+                // Get the custom tab names, if any
+                string autoTabName = null;
+                var tab1 = entry.Length > 2 ? entry[2] : null;
+                var tab2 = entry.Length > 3 ? entry[3] : null;
+
+                if (tab1 != null && tab1.Length == 0)
+                {
+                    tab1 = null;
+                }
+
+                if (tab2 != null && tab2.Length == 0)
+                {
+                    tab2 = null;
+                }
+
+                if (tab1 != null && tab2 != null && tab1.Equals(tab2, StringComparison.OrdinalIgnoreCase))
+                {
+                    tab2 = null;
+                }
+
+                // Override auto tabe name if custom name matches built-in tab name
+                if (tab1 != null && Auto_Tabs.Contains(tab1, StringComparer.OrdinalIgnoreCase))
+                {
+                    autoTabName = tab1;
+                    tab1 = null;
+                }
+
+                if (tab2 != null && Auto_Tabs.Contains(tab2, StringComparer.OrdinalIgnoreCase))
+                {
+                    autoTabName = tab2;
+                    tab2 = null;
+                }
+
+                // Update entry
+                apps[packageName] = new ProcessedApp
+                {
+                    PackageName = apps[entry[0]].PackageName,
+                    Index = apps[entry[0]].Index,
+                    AppName = appName,
+                    AutoTabName = autoTabName ?? apps[entry[0]].AutoTabName,
+                    Tab1Name = tab1 ?? apps[entry[0]].Tab1Name,
+                    Tab2Name = tab2 ?? apps[entry[0]].Tab2Name,
+                };
+            }
+        }
+
+        private static void ExtractIconPacks(AndroidJavaObject currentActivity)
+        {
+            var iconPackDestinationFolders = new Dictionary<string, string>(StringComparer.OrdinalIgnoreCase);
+            var iconPacksPath = UnityEngine.Application.persistentDataPath;
+
+            if (!Directory.Exists(iconPacksPath))
+            {
+                return;
+            }
+
+            // Full path of extraction dir
+            var extractionDirPath = Path.Combine(iconPacksPath, IconPackExtractionDir);
+            Debug.LogFormat("Extraction dir: {0}", extractionDirPath);
+
+            // Enumerate all iconpack *.zip files, sorted by name
+            foreach (var iconPackFilePath in Directory.GetFiles(iconPacksPath, IconPackSearch).OrderBy(f => f))
+            {
+                var iconPackFileName = Path.GetFileName(iconPackFilePath);
+
+                // Get file modified date
+                var modifiedTime = File.GetLastWriteTime(iconPackFilePath);
+
+                // Construct destination folder name w/ modified time
+                var destinationFolderName = iconPackFileName + "_" + modifiedTime.ToString("yyyy-dd-MM--HH-mm-ss");
+
+                iconPackDestinationFolders.Add(destinationFolderName, iconPackFileName);
+            }
+
+            // Enumerate all folders under destination path
+            if (Directory.Exists(extractionDirPath))
+            {
+                var dirs = Directory.GetDirectories(extractionDirPath);
+                foreach (var dirPath in dirs)
+                {
+                    var dir = new DirectoryInfo(dirPath).Name;
+                    if (iconPackDestinationFolders.ContainsKey(dir))
+                    {
+                        // Remove matching entry - this means that we've already extracted and matched on modified time
+                        iconPackDestinationFolders.Remove(dir);
+                    }
+                    else
+                    {
+                        // Delete any folder that is not in the icon pack target destination path
+                        Directory.Delete(dirPath, true);
+                    }
+                }
+            }
+
+            // Unzip icon packs
+            foreach (var iconPack in iconPackDestinationFolders)
+            {
+                currentActivity.CallStatic("unzip", Path.Combine(iconPacksPath, iconPack.Value),
+                    Path.Combine(extractionDirPath, iconPack.Key));
+            }
+        }
+
+        private static void ProcessExtractedIcons(Dictionary<string, ProcessedApp> apps)
+        {
+            // Full path of extraction dir
+            var extractionDirPath = Path.Combine(UnityEngine.Application.persistentDataPath, IconPackExtractionDir);
+
+            if (Directory.Exists(extractionDirPath))
+            {
+                // Enumerate extracted icon packs, sorted alphabetically
+                var dirs = Directory.GetDirectories(extractionDirPath).OrderBy(f => f);
+                foreach (var dir in dirs)
+                {
+                    ProcessIconsInPath(apps, dir);
+                }
+            }
+        }
+
+        private static void ProcessIconsInPath(Dictionary<string, ProcessedApp> apps, string path)
+        {
+            foreach (var iconFilePath in Directory.GetFiles(path, IconOverrideExtSearch))
+            {
+                // This is a list of jpg images stored as packageName.jpg.
+                var entry = Path.GetFileNameWithoutExtension(iconFilePath);
+                if (apps.ContainsKey(entry))
+                {
+                    Debug.Log("Found icon override: " + iconFilePath);
+
+                    ProcessedApp newProcessedApp = apps[entry];
+                    newProcessedApp.IconPath = iconFilePath;
+                    apps[entry] = newProcessedApp;
+                }
+            }
         }
 
         public static byte[] GetAppIcon(string iconPath, int appIndex)
