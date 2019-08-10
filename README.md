@@ -2,6 +2,13 @@
 
 An app launcher for Quest implemented in Unity.
 
+## Features
+* Supports launching both 3D and 2D apps
+* Auto-categorizes apps as Quest, Go / GearVR or 2D
+* Support for custom categorization
+* Support for custom app icons and names (by default, uses app name and icon from the app's apk)
+* Support for resizable grid
+
 ## Overriding app icons and names
 By default, the launcher uses the default app name and icon (from the apk). Sometimes, however, it is desirable to override these - for example, the icon may be the default Oculus icon instead of the actual game icon; or the app name may these do not map to the actual app name and icon in the Oculus Store.
 
