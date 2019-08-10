@@ -13,12 +13,18 @@ com.othercompany.otherapp,Other application
 
 Copy this file (appnames.txt) to the following location on your Quest: Android/data/aaa.QuestAppLauncher.App/files
 
+Note: Multiple appnames*.txt files are supported. If multiple files are present, they are applied in sorted order of the filenames. This allows for a single "master" appnames.txt file and then additional files to override it (like appnames_custom.txt).
+
 ### Override app icons
-Create a jpg file per app with the package-id as the filename. Example:  
+Create an iconpack.zip file that contains a jpg file per app with the package-id as the filename. Example:  
 com.mycompany.myapp.jpg  
 com.thirdcompany.yetanotherapp.jpg  
 
-Copy these files to the following location on your Quest: Android/data/aaa.QuestAppLauncher.App/files
+Copy the iconpack.zip to the following location on your Quest: Android/data/aaa.QuestAppLauncher.App/files
+
+Note: Multiple iconpack*.zip files are supported. If multiple files are present, they are applied in sorted order of the filenames. This allows for a single "master" iconpack.zip file and then additional files to override it (like iconpack_custom.zip).
+
+Note: Individual jpg files are also supported at the /Android/data/aaa.QuestAppLauncher.app/files path. These override any corresponding jpgs in iconpack*.zip files.
 
 ## Configuration
 The launcher can be customized by creating a **config.json** file and copying it to the following location on your Quest: Android/data/aaa.QuestAppLauncher.App/files.  
