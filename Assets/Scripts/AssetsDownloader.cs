@@ -4,6 +4,7 @@ using System.Collections.Generic;
 using System.IO;
 using System.Text;
 using System.Text.RegularExpressions;
+using System.Threading;
 using System.Threading.Tasks;
 using UnityEngine;
 using UnityEngine.Networking;
@@ -29,6 +30,9 @@ namespace QuestAppLauncher
 
         // Rate limit in minutes
         const int RateLimitInMins = 5;
+
+        // Used for mutual exclusion when loading assets
+        static SemaphoreSlim semaphoreSlim = new SemaphoreSlim(1, 1);
 
         /// <summary>
         /// Class that tracks each file downloaded.
@@ -75,6 +79,9 @@ namespace QuestAppLauncher
             // Start background thread
             Task.Run(async () =>
             {
+                // Mutual exclusion while loading assets
+                await AssetsDownloader.semaphoreSlim.WaitAsync();
+
                 // Attach / detatch JNI. Required for any calls into JNI from background threads.
                 AndroidJNI.AttachCurrentThread();
 
@@ -86,6 +93,7 @@ namespace QuestAppLauncher
                 }
                 finally
                 {
+                    AssetsDownloader.semaphoreSlim.Release();
                     AndroidJNI.DetachCurrentThread();
                 }
             }).ContinueWith((downloadedAssets) =>
