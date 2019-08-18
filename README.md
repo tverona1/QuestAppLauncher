@@ -109,3 +109,8 @@ Comments can be added to appnames.txt by prepending "#".
 - Assets/Scenes/QuestAppLauncher.unity: The main scene
 - Assets/Plugins/Android: Android-specific implementation to retrieve installed apps etc, written in Java
 - Assets/Scripts: Main set of C# scripts for grid population, scroll handling etc.
+
+## Credits
+A huge thank you to fecheva [https://github.com/fecheva] for creating / maintaining the app names & icon packs!
+
+Also thank you to noxx for creating the app's icon!
