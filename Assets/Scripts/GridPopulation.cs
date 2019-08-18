@@ -36,6 +36,9 @@ namespace QuestAppLauncher
         // Tracking space
         public GameObject trackingSpace;
 
+        // Download status indicator
+        public DownloadStatusIndicator downloadStatusIndicator;
+
         // App info prefab (a cell in the grid content)
         public GameObject prefabCell;
 
@@ -73,8 +76,7 @@ namespace QuestAppLauncher
         private async Task PopulateAsync()
         {
             // Load configuration
-            Config config = new Config();
-            ConfigPersistence.LoadConfig(config);
+            var config = ConfigPersistence.LoadConfig();
 
             // Process apps in background
             var apps = await Task.Run(() =>
@@ -90,6 +92,13 @@ namespace QuestAppLauncher
                     AndroidJNI.DetachCurrentThread();
                 }
             });
+
+            // Download updates in the background
+            if (config.autoUpdate && !GlobalState.Instance.CheckedForUpdate)
+            {
+                GlobalState.Instance.CheckedForUpdate = true;
+                AssetsDownloader.DownloadAssetsAsync(config, this.downloadStatusIndicator);
+            }
 
             // Populate the panel content
             await PopulatePanelContentAsync(config, apps);

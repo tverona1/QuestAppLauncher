@@ -20,6 +20,8 @@ namespace QuestAppLauncher
         public GameObject gridRowsText;
         public GameObject gridPopulation;
         public GameObject show2DToggle;
+        public GameObject autoUpdateToggle;
+        public DownloadStatusIndicator downloadStatusIndicator;
 
         public Toggle tabsAutoOff;
         public Toggle tabsAutoTop;
@@ -33,7 +35,7 @@ namespace QuestAppLauncher
 
         private bool deletedHiddenAppsFile = false;
 
-        private Config config = new Config();
+        private Config config = null;
 
         public void OpenSettings()
         {
@@ -44,7 +46,7 @@ namespace QuestAppLauncher
             this.settingsContainer.SetActive(true);
 
             // Load config
-            ConfigPersistence.LoadConfig(this.config);
+            this.config = ConfigPersistence.LoadConfig();
 
             // Set current cols & rows
             var colsSlider = this.gridCols.GetComponent<Slider>();
@@ -60,6 +62,9 @@ namespace QuestAppLauncher
 
             // Set 2D toggle
             this.show2DToggle.GetComponent<Toggle>().SetIsOnWithoutNotify(this.config.show2D);
+
+            // Set auto-update toggle
+            this.autoUpdateToggle.GetComponent<Toggle>().SetIsOnWithoutNotify(this.config.autoUpdate);
 
             // Set auto tab mode
             if (this.config.autoCategory.Equals(Config.Category_Top, StringComparison.OrdinalIgnoreCase))
@@ -110,6 +115,11 @@ namespace QuestAppLauncher
             this.settingsContainer.SetActive(false);
         }
 
+        public void UpdateAssetsNow()
+        {
+            AssetsDownloader.DownloadAssetsAsync(config, this.downloadStatusIndicator, true);
+        }
+
         public void DeleteExcludedApksFile()
         {
             Debug.Log("Delete Excluded App List");
@@ -155,6 +165,14 @@ namespace QuestAppLauncher
             if (show2D != this.config.show2D)
             {
                 this.config.show2D = show2D;
+                saveConfig = true;
+            }
+
+            // Update auto-update toggle
+            var autoUpdate = this.autoUpdateToggle.GetComponent<Toggle>().isOn;
+            if (autoUpdate != this.config.autoUpdate)
+            {
+                this.config.autoUpdate = autoUpdate;
                 saveConfig = true;
             }
 

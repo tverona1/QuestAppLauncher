@@ -3,6 +3,7 @@ using System.Collections;
 using System.Collections.Generic;
 using System.IO;
 using System.Linq;
+using System.Threading.Tasks;
 using UnityEngine;
 
 namespace QuestAppLauncher
@@ -23,11 +24,11 @@ namespace QuestAppLauncher
         // File name of app name overrides
         const string AppNameOverrideFileSearch = "appnames*.txt";
 
-        // File name of excluded package names
-        const string ExcludedPackagesFile = "excludedpackages.txt";
-
         // Icon pack search string
         const string IconPackSearch = "iconpack*.zip";
+
+        // File name of excluded package names
+        const string ExcludedPackagesFile = "excludedpackages.txt";
 
         // Icon pack extraction dir
         const string IconPackExtractionDir = "cache";
@@ -117,18 +118,17 @@ namespace QuestAppLauncher
                     Debug.LogFormat("[{0}] package: {1}, name: {2}, auto tab: {3}", i, packageName, appName, tabName);
                 }
 
-                // Process appname*.txt files, sorted by name
-                foreach (var appNameOverrideFilePath in Directory.GetFiles(
-                    persistentDataPath, AppNameOverrideFileSearch).OrderBy(f => f))
-                {
-                    ProcessAppNameOverrideFile(apps, appNameOverrideFilePath);
-                }
+                // Process app name overrides files (both downloaded & manually created)
+                ProcessAppNameOverrideFiles(apps, AssetsDownloader.GetOrCreateDownloadPath());
+                ProcessAppNameOverrideFiles(apps, persistentDataPath);
 
-                // Extract icon packs
-                ExtractIconPacks(currentActivity);
+                // Extract icon packs (both downloaded & manually created)
+                ExtractIconPacks(currentActivity, AssetsDownloader.GetOrCreateDownloadPath());
+                ExtractIconPacks(currentActivity, persistentDataPath);
 
-                // Process extracted icons
-                ProcessExtractedIcons(apps);
+                // Process extracted icons (both downloaded & manually created)
+                ProcessExtractedIcons(apps, AssetsDownloader.GetOrCreateDownloadPath());
+                ProcessExtractedIcons(apps, persistentDataPath);
 
                 // Process any individual icons
                 var iconOverridePath = persistentDataPath;
@@ -139,6 +139,16 @@ namespace QuestAppLauncher
             }
 
             return apps;
+        }
+
+        private static void ProcessAppNameOverrideFiles(Dictionary<string, ProcessedApp> apps, string path)
+        {
+            // Process appname*.txt files, sorted by name
+            foreach (var filePath in Directory.GetFiles(
+                path, AppNameOverrideFileSearch).OrderBy(f => f))
+            {
+                ProcessAppNameOverrideFile(apps, filePath);
+            }
         }
 
         private static void ProcessAppNameOverrideFile(Dictionary<string, ProcessedApp> apps, string appNameOverrideFilePath)
@@ -222,15 +232,14 @@ namespace QuestAppLauncher
             }
         }
 
-        private static void ExtractIconPacks(AndroidJavaObject currentActivity)
+        private static void ExtractIconPacks(AndroidJavaObject currentActivity, string iconPacksPath)
         {
-            var iconPackDestinationFolders = new Dictionary<string, string>(StringComparer.OrdinalIgnoreCase);
-            var iconPacksPath = UnityEngine.Application.persistentDataPath;
-
             if (!Directory.Exists(iconPacksPath))
             {
                 return;
             }
+
+            var iconPackDestinationFolders = new Dictionary<string, string>(StringComparer.OrdinalIgnoreCase);
 
             // Full path of extraction dir
             var extractionDirPath = Path.Combine(iconPacksPath, IconPackExtractionDir);
@@ -278,10 +287,10 @@ namespace QuestAppLauncher
             }
         }
 
-        private static void ProcessExtractedIcons(Dictionary<string, ProcessedApp> apps)
+        private static void ProcessExtractedIcons(Dictionary<string, ProcessedApp> apps, string iconsPath)
         {
             // Full path of extraction dir
-            var extractionDirPath = Path.Combine(UnityEngine.Application.persistentDataPath, IconPackExtractionDir);
+            var extractionDirPath = Path.Combine(iconsPath, IconPackExtractionDir);
 
             if (Directory.Exists(extractionDirPath))
             {

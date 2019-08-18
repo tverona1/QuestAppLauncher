@@ -3,6 +3,8 @@ using System.Collections;
 using System.Collections.Generic;
 using System.IO;
 using UnityEngine;
+using Newtonsoft.Json;
+using Newtonsoft.Json.Linq;
 
 namespace QuestAppLauncher
 {
@@ -18,6 +20,10 @@ namespace QuestAppLauncher
         public const string Category_Left = "left";
         public const string Category_Right = "right";
 
+        // Download repos
+        public const string DownloadRepo_Type_GitHub = "github";
+        public const string DownloadRepo_Default = @"tverona1/QuestAppLauncher_Assets/releases/latest";
+
         /// <summary>
         /// Grid size
         /// </summary>
@@ -26,6 +32,16 @@ namespace QuestAppLauncher
         {
             public int rows = 3;
             public int cols = 3;
+        }
+
+        /// <summary>
+        /// Download repo type
+        /// </summary>
+        [Serializable]
+        public class DownloadRepo
+        {
+            public string repoUri;
+            public string type;
         }
 
         // Grid size, specified as cols x rows
@@ -39,6 +55,15 @@ namespace QuestAppLauncher
 
         // Custom Category: Apps are categorized according to appnames.txt file
         public string customCategory = Category_Right;
+
+        // Whether to auto-download updates
+        public bool autoUpdate = false;
+
+        // Github download repos
+        public List<DownloadRepo> downloadRepos = new List<DownloadRepo>()
+        {
+            new DownloadRepo { repoUri = DownloadRepo_Default, type = DownloadRepo_Type_GitHub }
+        };
     }
 
     /// <summary>
@@ -52,8 +77,9 @@ namespace QuestAppLauncher
         /// <summary>
         /// Load config from file
         /// </summary>
-        /// <param name="config">Config object that will be overwritten</param>
-        static public void LoadConfig(Config config)
+        /// <param name="config"></param>
+        /// <returns>Config object</returns>
+        static public Config LoadConfig()
         {
             var configFilePath = Path.Combine(UnityEngine.Application.persistentDataPath, ConfigFileName);
             if (File.Exists(configFilePath))
@@ -63,7 +89,7 @@ namespace QuestAppLauncher
 
                 try
                 {
-                    JsonUtility.FromJsonOverwrite(jsonConfig, config);
+                    return JsonConvert.DeserializeObject<Config>(jsonConfig);
                 }
                 catch (Exception e)
                 {
@@ -74,6 +100,9 @@ namespace QuestAppLauncher
             {
                 Debug.Log("Did not find config file: " + configFilePath);
             }
+
+            // Return default config
+            return new Config();
         }
 
         /// <summary>
@@ -87,11 +116,11 @@ namespace QuestAppLauncher
 
             try
             {
-                File.WriteAllText(configFilePath, JsonUtility.ToJson(config, true));
+                File.WriteAllText(configFilePath, JsonConvert.SerializeObject(config, Formatting.Indented));
             }
             catch (Exception e)
             {
-                Debug.Log(string.Format("Failed to read config: {0}", e.Message));
+                Debug.Log(string.Format("Failed to write config: {0}", e.Message));
             }
 
         }
