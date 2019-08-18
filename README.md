@@ -8,9 +8,17 @@ An app launcher for Quest implemented in Unity.
 * Support for custom categorization
 * Support for custom app icons and names (by default, uses app name and icon from the app's apk)
 * Support for resizable grid
+* Support for downloading app icons and names, including auto-updating
 
-## Overriding app icons and names
+## Downloading app icons and names (and auto-updating)
 By default, the launcher uses the default app name and icon (from the apk). Sometimes, however, it is desirable to override these - for example, the icon may be the default Oculus icon instead of the actual game icon; or the app name may these do not map to the actual app name and icon in the Oculus Store.
+
+To automatically download app names and app icons, go to Settings and chooose "Update Now". To enable auto-updates, go to Settings and enable "Auto-Update". This will automatically download new app names and icons as they become available.
+
+Default repository for app icons and names is [https://github.com/tverona1/QuestAppLauncher_assets]. This can be configured in config.json.
+
+## Manually overriding app icons and names
+It is also possible to manually configure app icons and names rather than automatically downloading them. This section describes how.
 
 ### Override app names
 Create a file called **appnames.txt**. Add a line per app with comma-separated package-id and desired name. Example:  
@@ -72,6 +80,13 @@ Here's an example config.json:
     "show2D": true,
     "autoCategory": "top",
     "customCategory": "right"
+    "autoUpdate": true,
+    "downloadRepos": [
+      {
+        "repoUri": "tverona1/QuestAppLauncher_Assets/releases/latest",
+        "type": "github"
+      }
+    ]
 }
 ```
 
