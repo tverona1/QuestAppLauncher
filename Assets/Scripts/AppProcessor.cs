@@ -3,11 +3,17 @@ using System.Collections;
 using System.Collections.Generic;
 using System.IO;
 using System.Linq;
+using System.Text;
 using System.Threading.Tasks;
 using UnityEngine;
+using Newtonsoft.Json;
+using Newtonsoft.Json.Linq;
 
 namespace QuestAppLauncher
 {
+    /// <summary>
+    /// Class used to track details about an app
+    /// </summary>
     public class ProcessedApp
     {
         public int Index;
@@ -21,8 +27,20 @@ namespace QuestAppLauncher
 
     public class AppProcessor
     {
+        /// <summary>
+        /// Class used to deserialize appnames.json entries
+        /// </summary>
+        [Serializable]
+        class JsonAppNamesEntry
+        {
+            public string Name;
+            public string Category;
+            public string Category2;
+        }
+
         // File name of app name overrides
-        const string AppNameOverrideFileSearch = "appnames*.txt";
+        const string AppNameOverrideTxtFileSearch = "appnames*.txt";
+        const string AppNameOverrideJsonFileSearch = "appnames*.json";
 
         // Icon pack search string
         const string IconPackSearch = "iconpack*.zip";
@@ -143,22 +161,102 @@ namespace QuestAppLauncher
 
         private static void ProcessAppNameOverrideFiles(Dictionary<string, ProcessedApp> apps, string path)
         {
+            // Process appname*.json files, sorted by name
+            foreach (var filePath in Directory.GetFiles(
+                path, AppNameOverrideJsonFileSearch).OrderBy(f => f))
+            {
+                ProcessAppNameOverrideJsonFile(apps, filePath);
+            }
+
             // Process appname*.txt files, sorted by name
             foreach (var filePath in Directory.GetFiles(
-                path, AppNameOverrideFileSearch).OrderBy(f => f))
+                path, AppNameOverrideTxtFileSearch).OrderBy(f => f))
             {
-                ProcessAppNameOverrideFile(apps, filePath);
+                ProcessAppNameOverrideTxtFile(apps, filePath);
             }
         }
 
-        private static void ProcessAppNameOverrideFile(Dictionary<string, ProcessedApp> apps, string appNameOverrideFilePath)
+        private static void ProcessAppNameOverrideJsonFile(Dictionary<string, ProcessedApp> apps, string appNameOverrideFilePath)
+        {
+            // Override app names, if any
+            Debug.Log("Found file: " + appNameOverrideFilePath);
+
+            try
+            {
+                var json = File.ReadAllText(appNameOverrideFilePath, Encoding.UTF8);
+                var jsonAppNames = JsonConvert.DeserializeObject<Dictionary<string, JsonAppNamesEntry>>(json);
+
+                foreach (var entry in jsonAppNames)
+                {
+                    var packageName = entry.Key;
+                    var appName = entry.Value.Name;
+
+                    if (!apps.ContainsKey(packageName))
+                    {
+                        // App is not installed, so skip
+                        continue;
+                    }
+
+                    // Get the custom tab names, if any
+                    string autoTabName = null;
+                    var tab1 = entry.Value.Category;
+                    var tab2 = entry.Value.Category2;
+
+                    if (tab1 != null && tab1.Length == 0)
+                    {
+                        tab1 = null;
+                    }
+
+                    if (tab2 != null && tab2.Length == 0)
+                    {
+                        tab2 = null;
+                    }
+
+                    if (tab1 != null && tab2 != null && tab1.Equals(tab2, StringComparison.OrdinalIgnoreCase))
+                    {
+                        tab2 = null;
+                    }
+
+                    // Override auto tab name if custom name matches built-in tab name
+                    if (tab1 != null && Auto_Tabs.Contains(tab1, StringComparer.OrdinalIgnoreCase))
+                    {
+                        autoTabName = tab1;
+                        tab1 = null;
+                    }
+
+                    if (tab2 != null && Auto_Tabs.Contains(tab2, StringComparer.OrdinalIgnoreCase))
+                    {
+                        autoTabName = tab2;
+                        tab2 = null;
+                    }
+
+                    // Update entry
+                    apps[packageName] = new ProcessedApp
+                    {
+                        PackageName = apps[entry.Key].PackageName,
+                        Index = apps[entry.Key].Index,
+                        AppName = appName,
+                        AutoTabName = autoTabName ?? apps[entry.Key].AutoTabName,
+                        Tab1Name = tab1 ?? apps[entry.Key].Tab1Name,
+                        Tab2Name = tab2 ?? apps[entry.Key].Tab2Name,
+                    };
+                }
+            }
+            catch (Exception e)
+            {
+                Debug.Log(string.Format("Failed to process json app names: {0}", e.Message));
+                return;
+            }
+        }
+
+        private static void ProcessAppNameOverrideTxtFile(Dictionary<string, ProcessedApp> apps, string appNameOverrideFilePath)
         {
             // Override app names, if any
             // This is just a file with comma-separated packageName,appName[,category1[, category2]]
             // Category1 and category2 are optional categories (tabs).
             Debug.Log("Found file: " + appNameOverrideFilePath);
 
-            string[] lines = File.ReadAllLines(appNameOverrideFilePath);
+            string[] lines = File.ReadAllLines(appNameOverrideFilePath, Encoding.UTF8);
             foreach (string line in lines)
             {
                 line.Trim();
@@ -206,7 +304,7 @@ namespace QuestAppLauncher
                     tab2 = null;
                 }
 
-                // Override auto tabe name if custom name matches built-in tab name
+                // Override auto tab name if custom name matches built-in tab name
                 if (tab1 != null && Auto_Tabs.Contains(tab1, StringComparer.OrdinalIgnoreCase))
                 {
                     autoTabName = tab1;
