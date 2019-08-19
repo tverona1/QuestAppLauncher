@@ -131,7 +131,7 @@ namespace QuestAppLauncher
             // Rate limit update checks to one per couple of minutes, to avoid GitHub's rate limit
             if (!forceCheck && DateTime.Now.Subtract(manifest.LastUpdated).TotalMinutes < RateLimitInMins)
             {
-                Debug.LogFormat("Exceeded rate limit of {0} - last checked for update on {1}", RateLimitInMins, manifest.LastUpdated);
+                Debug.LogFormat("Exceeded rate limit of {0} mins - last checked for update on {1}", RateLimitInMins, manifest.LastUpdated);
                 return false;
             }
 
@@ -332,9 +332,10 @@ namespace QuestAppLauncher
                         var url = property["url"].Value<string>();
                         var name = property["name"].Value<string>();
 
-                        // For now, simply accept any iconpack*.zip and appnames*.txt.
+                        // For now, simply accept any iconpack*.zip and appnames*.txt/json.
                         if ((name.StartsWith("iconpack") && name.EndsWith(".zip")) ||
-                            (name.StartsWith("appnames") && name.EndsWith(".txt")))
+                            (name.StartsWith("appnames") && name.EndsWith(".txt")) ||
+                            (name.StartsWith("appnames") && name.EndsWith(".json")))
                         {
                             assetsInfo[name] = new AssetInfo { RepoUri = repoUri, Url = url, UpdatedAt = updatedAt, TagName = tagName };
                         }
