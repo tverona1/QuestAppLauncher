@@ -17,6 +17,17 @@ namespace QuestAppLauncher
     /// </summary>
     public class GridPopulation : MonoBehaviour
     {
+        public class AppComparer : IComparer<ProcessedApp>
+        {
+            public int Compare(ProcessedApp x, ProcessedApp y)
+            {
+                // Order by last used and then alphabetical to break ties
+                return (x.LastTimeUsed != y.LastTimeUsed) ?
+                    (y.LastTimeUsed - x.LastTimeUsed > 0 ? 1 : -1) :
+                    string.Compare(x.AppName, y.AppName, true);
+            }
+        }
+
         // Grid container game object
         public GameObject panelContainer;
 
@@ -168,8 +179,8 @@ namespace QuestAppLauncher
             }
 
             // Populate grid with app information (name & icon)
-            // Sort by app name
-            foreach (var app in apps.OrderBy(key => key.Value.AppName))
+            // Sort by custom comparer
+            foreach (var app in apps.OrderBy(key => key.Value, new AppComparer()))
             {
                 // Add to all tab
                 await AddCellToGridAsync(app.Value, gridContents[AppProcessor.Tab_All].transform);

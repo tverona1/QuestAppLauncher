@@ -23,6 +23,7 @@ namespace QuestAppLauncher
         public string Tab1Name;
         public string Tab2Name;
         public string IconPath;
+        public long LastTimeUsed;
     }
 
     public class AppProcessor
@@ -60,6 +61,9 @@ namespace QuestAppLauncher
         public const string Tab_2D = "2D";
         public const string Tab_All = "All";
 
+        // LastUsage lookback days
+        const int LastUsedLookbackDays = 30;
+
         public static readonly string[] Auto_Tabs = { Tab_Quest, Tab_Go, Tab_2D };
 
         public static Dictionary<string, ProcessedApp> ProcessApps(Config config)
@@ -78,6 +82,14 @@ namespace QuestAppLauncher
                 // Get # of installed apps
                 int numApps = currentActivity.Call<int>("getSize");
                 Debug.Log("# installed apps: " + numApps);
+
+                var processedLastTimeUsed = false;
+                if (config.sortMode.Equals(Config.Sort_MostRecent, StringComparison.OrdinalIgnoreCase))
+                {
+                    // Process last time used for each app
+                    currentActivity.Call("processLastTimeUsed", LastUsedLookbackDays);
+                    processedLastTimeUsed = true;
+                }
 
                 // Add current package name to excludedPackageNames to filter it out
                 excludedPackageNames.Add(currentActivity.Call<string>("getPackageName"));
@@ -102,6 +114,7 @@ namespace QuestAppLauncher
                 {
                     var packageName = currentActivity.Call<string>("getPackageName", i);
                     var appName = currentActivity.Call<string>("getAppName", i);
+                    var lastTimeUsed = processedLastTimeUsed ? currentActivity.Call<long>("getLastTimeUsed", i) : 0;
 
                     if (excludedPackageNames.Contains(packageName))
                     {
@@ -132,7 +145,8 @@ namespace QuestAppLauncher
                         tabName = Tab_Go;
                     }
 
-                    apps.Add(packageName, new ProcessedApp { PackageName = packageName, Index = i, AutoTabName = tabName, AppName = appName });
+                    apps.Add(packageName, new ProcessedApp { PackageName = packageName, Index = i,
+                        AutoTabName = tabName, AppName = appName, LastTimeUsed = lastTimeUsed });
                     Debug.LogFormat("[{0}] package: {1}, name: {2}, auto tab: {3}", i, packageName, appName, tabName);
                 }
 
@@ -239,6 +253,7 @@ namespace QuestAppLauncher
                         AutoTabName = autoTabName ?? apps[entry.Key].AutoTabName,
                         Tab1Name = tab1 ?? apps[entry.Key].Tab1Name,
                         Tab2Name = tab2 ?? apps[entry.Key].Tab2Name,
+                        LastTimeUsed = apps[entry.Key].LastTimeUsed
                     };
                 }
             }
@@ -326,6 +341,7 @@ namespace QuestAppLauncher
                     AutoTabName = autoTabName ?? apps[entry[0]].AutoTabName,
                     Tab1Name = tab1 ?? apps[entry[0]].Tab1Name,
                     Tab2Name = tab2 ?? apps[entry[0]].Tab2Name,
+                    LastTimeUsed = apps[entry[0]].LastTimeUsed
                 };
             }
         }

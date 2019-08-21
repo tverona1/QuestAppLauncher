@@ -2,17 +2,25 @@ package aaa.QuestAppLauncher.App;
 
 import com.unity3d.player.UnityPlayerActivity;
 import android.app.Activity;
+import android.app.AppOpsManager;
+import android.app.usage.UsageStats;
+import android.app.usage.UsageStatsManager;
+import android.content.Context;
+import android.content.Intent;
 import android.content.pm.PackageManager;
 import android.content.pm.PackageManager.NameNotFoundException;
 import android.content.pm.PackageInfo;
 import android.content.pm.FeatureInfo;
 import android.content.pm.ApplicationInfo;
+import android.provider.Settings;
 import java.io.BufferedInputStream;
 import java.io.BufferedOutputStream;
 import java.io.ByteArrayOutputStream;
 import java.io.File;
 import java.io.FileInputStream;
 import java.io.FileOutputStream;
+import java.util.Calendar;
+import java.util.Map;
 import java.util.zip.ZipEntry;
 import java.util.zip.ZipInputStream;
 import android.os.Bundle;
@@ -22,23 +30,30 @@ import android.graphics.drawable.BitmapDrawable;
 import java.util.List;
 import java.util.LinkedList;
 
+class AppInfoInternal {
+    public ApplicationInfo app;
+    public long lastTimeUsed;
+}
+
 public class AppInfo extends UnityPlayerActivity {
 
     private static final String TAG = "AppInfo";
-    private List<ApplicationInfo> installedApps;
+    private List<AppInfoInternal> installedApps;
 
     @Override
     protected void onStart() {
         super.onStart();
 
-        installedApps = new LinkedList<ApplicationInfo>();
+        installedApps = new LinkedList<AppInfoInternal>();
         for(ApplicationInfo app : this.getPackageManager().getInstalledApplications(PackageManager.GET_META_DATA)) {
             if((app.flags & (ApplicationInfo.FLAG_UPDATED_SYSTEM_APP | ApplicationInfo.FLAG_SYSTEM)) > 0) {
                 // Skip system app
                 continue;
             }
 
-            installedApps.add(app);
+            AppInfoInternal appInfoInternal = new AppInfoInternal();
+            appInfoInternal.app = app;
+            installedApps.add(appInfoInternal);
         }
     }
 
@@ -47,11 +62,16 @@ public class AppInfo extends UnityPlayerActivity {
     }
 
     public String getPackageName(int i) {
-        return this.installedApps.get(i).packageName;
+        return this.installedApps.get(i).app.packageName;
     }
 
     public String getAppName(int i) {
-        return (String)this.getPackageManager().getApplicationLabel(installedApps.get(i));
+        return (String)this.getPackageManager().getApplicationLabel(installedApps.get(i).app);
+    }
+
+    public long getLastTimeUsed(int i)
+    {
+        return this.installedApps.get(i).lastTimeUsed;
     }
 
     public boolean isQuestApp(int i) {
@@ -73,7 +93,7 @@ public class AppInfo extends UnityPlayerActivity {
 
     public boolean is2DApp(int i)
     {
-        ApplicationInfo app = this.installedApps.get(i);
+        ApplicationInfo app = this.installedApps.get(i).app;
         if (null == app.metaData)
         {
             return true;
@@ -88,12 +108,47 @@ public class AppInfo extends UnityPlayerActivity {
     }
 
     public byte[] getIcon(int i) {
-        BitmapDrawable icon = (BitmapDrawable)this.getPackageManager().getApplicationIcon(installedApps.get(i));
+        BitmapDrawable icon = (BitmapDrawable)this.getPackageManager().getApplicationIcon(installedApps.get(i).app);
         Bitmap bmp = icon.getBitmap();
         ByteArrayOutputStream stream = new ByteArrayOutputStream();
         bmp.compress(Bitmap.CompressFormat.JPEG, 100, stream);
         byte[] byteArray = stream.toByteArray();
         return byteArray;
+    }
+
+    public boolean hasUsageStatsPermissions() {
+        AppOpsManager appOps = (AppOpsManager) this.getSystemService(Context.APP_OPS_SERVICE);
+        final int mode = appOps.checkOpNoThrow(AppOpsManager.OPSTR_GET_USAGE_STATS, android.os.Process.myUid(), this.getPackageName());
+        boolean granted = mode == AppOpsManager.MODE_DEFAULT ?
+            (this.checkCallingOrSelfPermission(android.Manifest.permission.PACKAGE_USAGE_STATS) == PackageManager.PERMISSION_GRANTED)
+            : (mode == AppOpsManager.MODE_ALLOWED);
+        return granted;
+    }
+
+    public void grantUsageStatsPermission() {
+        startActivity(new Intent(Settings.ACTION_USAGE_ACCESS_SETTINGS));
+    }
+
+    public void processLastTimeUsed(int numDaysLookback) {
+        if (!hasUsageStatsPermissions()) {
+            Log.i(TAG, "PorcessLastTimeUsed: No permissions, so skipping");
+        }
+
+        UsageStatsManager usageStatsManager = (UsageStatsManager) this.getSystemService(Context.USAGE_STATS_SERVICE);
+        Calendar calendar = Calendar.getInstance();
+        calendar.add(Calendar.DAY_OF_MONTH, -1 * numDaysLookback);
+        long start = calendar.getTimeInMillis();
+        long end = System.currentTimeMillis();
+        Map<String, UsageStats> stats = usageStatsManager.queryAndAggregateUsageStats(start, end);
+
+        for (int i = 0; i < this.installedApps.size(); i++) {
+            if (stats.containsKey(getPackageName(i))) {
+                AppInfoInternal app = this.installedApps.get(i);
+                app.lastTimeUsed = stats.get(getPackageName(i)).getLastTimeStamp();
+                Log.v(TAG, "Package " + getPackageName(i) + " last time stamp = " + app.lastTimeUsed);
+                this.installedApps.set(i, app);
+            }
+        }
     }
 
     public static void unzip(String zipFileName, String targetPath) {

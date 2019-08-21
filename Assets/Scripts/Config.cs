@@ -20,6 +20,10 @@ namespace QuestAppLauncher
         public const string Category_Left = "left";
         public const string Category_Right = "right";
 
+        // Sort settings
+        public const string Sort_AZ = "az";
+        public const string Sort_MostRecent = "mostRecent";
+
         // Download repos
         public const string DownloadRepo_Type_GitHub = "github";
         public const string DownloadRepo_Default = @"tverona1/QuestAppLauncher_Assets/releases/latest";
@@ -46,6 +50,9 @@ namespace QuestAppLauncher
 
         // Grid size, specified as cols x rows
         public GridSize gridSize = new GridSize();
+
+        // Sort mode
+        public string sortMode = Sort_AZ;
 
         // Whether to show 2D apps
         public bool show2D = false;

@@ -33,6 +33,11 @@ namespace QuestAppLauncher
         public Toggle tabsCustomLeft;
         public Toggle tabsCustomRight;
 
+        public Toggle sortAZ;
+        public Toggle sortMostRecent;
+
+        public GameObject usageStatsPermText;
+
         private bool deletedHiddenAppsFile = false;
 
         private Config config = null;
@@ -59,6 +64,9 @@ namespace QuestAppLauncher
 
             var rowsText = this.gridRowsText.GetComponent<TextMeshProUGUI>();
             rowsText.text = string.Format("{0} Rows", this.config.gridSize.rows);
+
+            // initialize sort mode
+            InitializeSortMode();
 
             // Set 2D toggle
             this.show2DToggle.GetComponent<Toggle>().SetIsOnWithoutNotify(this.config.show2D);
@@ -144,6 +152,65 @@ namespace QuestAppLauncher
             rowsText.text = string.Format("{0} Rows", rows);
         }
 
+        private bool HasUsageStatsPermissions()
+        {
+            // Check if we have UsageStats permission
+            using (AndroidJavaClass unity = new AndroidJavaClass("com.unity3d.player.UnityPlayer"))
+            using (AndroidJavaObject currentActivity = unity.GetStatic<AndroidJavaObject>("currentActivity"))
+            {
+                var hasUsageStatsPermissions = currentActivity.Call<bool>("hasUsageStatsPermissions");
+                Debug.LogFormat("UsageStatsPermission: {0}", hasUsageStatsPermissions);
+                return hasUsageStatsPermissions;
+            }
+        }
+
+        private void InitializeSortMode()
+        {
+            bool hasUsageStatsPermissions = HasUsageStatsPermissions();
+
+            // Indicate whether we need to get permission
+            this.usageStatsPermText.SetActive(!hasUsageStatsPermissions);
+
+            if (hasUsageStatsPermissions &&
+                this.config.sortMode.Equals(Config.Sort_MostRecent, StringComparison.OrdinalIgnoreCase))
+            {
+                // Have UsageStats permission, so set it to on
+                this.sortMostRecent.isOn = true;
+            }
+            else
+            {
+                // Default is to sort by AZ
+                this.sortAZ.isOn = true;
+            }
+
+            this.sortMostRecent.onValueChanged.AddListener((bool isOn) => {
+                if (isOn)
+                {
+                    // Re-check permissions
+                    bool hasPerms = HasUsageStatsPermissions();
+
+                    // Indicate whether we need to get permission
+                    this.usageStatsPermText.SetActive(!hasPerms);
+
+                    if (!hasPerms)
+                    {
+                        this.sortMostRecent.SetIsOnWithoutNotify(false);
+                        this.sortAZ.SetIsOnWithoutNotify(true);
+
+                        // Ask for permissions
+                        using (AndroidJavaClass unity = new AndroidJavaClass("com.unity3d.player.UnityPlayer"))
+                        using (AndroidJavaObject currentActivity = unity.GetStatic<AndroidJavaObject>("currentActivity"))
+                        {
+                            currentActivity.Call("grantUsageStatsPermission");
+
+                            // Quest doesn't like multiple apps running - kill ourself
+                            UnityEngine.Application.Quit();
+                        }
+                    }
+                }
+            });
+        }
+
         private void PersistConfig()
         {
             bool saveConfig = false;
@@ -157,6 +224,23 @@ namespace QuestAppLauncher
             {
                 this.config.gridSize.cols = cols;
                 this.config.gridSize.rows = rows;
+                saveConfig = true;
+            }
+
+            // Update sort mode
+            string sortMode;
+            if (this.sortMostRecent.isOn)
+            {
+                sortMode = Config.Sort_MostRecent;
+            }
+            else
+            {
+                sortMode = Config.Sort_AZ;
+            }
+
+            if (!this.config.sortMode.Equals(sortMode, StringComparison.OrdinalIgnoreCase))
+            {
+                this.config.sortMode = sortMode;
                 saveConfig = true;
             }
 
