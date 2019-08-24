@@ -125,17 +125,22 @@ namespace QuestAppLauncher
             var rightTabs = new List<string>();
 
             // Set auto tabs
+            var autoTabs = AppProcessor.Auto_Tabs.Intersect(
+                apps.Where(x => null != x.Value.AutoTabName).Select(x => x.Value.AutoTabName)
+                    .Distinct(StringComparer.CurrentCultureIgnoreCase).ToList(),
+                StringComparer.CurrentCultureIgnoreCase);
+
             if (config.autoCategory.Equals(Config.Category_Top, StringComparison.OrdinalIgnoreCase))
             {
-                topTabs.AddRange(AppProcessor.Auto_Tabs);
+                topTabs.AddRange(autoTabs);
             }
             else if (config.autoCategory.Equals(Config.Category_Left, StringComparison.OrdinalIgnoreCase))
             {
-                leftTabs.AddRange(AppProcessor.Auto_Tabs);
+                leftTabs.AddRange(autoTabs);
             }
             else if (config.autoCategory.Equals(Config.Category_Right, StringComparison.OrdinalIgnoreCase))
             {
-                rightTabs.AddRange(AppProcessor.Auto_Tabs);
+                rightTabs.AddRange(autoTabs);
             }
 
             // Set custom tabs, sorted alphabetically
