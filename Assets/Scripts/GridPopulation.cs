@@ -17,6 +17,17 @@ namespace QuestAppLauncher
     /// </summary>
     public class GridPopulation : MonoBehaviour
     {
+        public class AppComparer : IComparer<ProcessedApp>
+        {
+            public int Compare(ProcessedApp x, ProcessedApp y)
+            {
+                // Order by last used and then alphabetical to break ties
+                return (x.LastTimeUsed != y.LastTimeUsed) ?
+                    (y.LastTimeUsed - x.LastTimeUsed > 0 ? 1 : -1) :
+                    string.Compare(x.AppName, y.AppName, true);
+            }
+        }
+
         // Grid container game object
         public GameObject panelContainer;
 
@@ -114,17 +125,22 @@ namespace QuestAppLauncher
             var rightTabs = new List<string>();
 
             // Set auto tabs
+            var autoTabs = AppProcessor.Auto_Tabs.Intersect(
+                apps.Where(x => null != x.Value.AutoTabName).Select(x => x.Value.AutoTabName)
+                    .Distinct(StringComparer.CurrentCultureIgnoreCase).ToList(),
+                StringComparer.CurrentCultureIgnoreCase);
+
             if (config.autoCategory.Equals(Config.Category_Top, StringComparison.OrdinalIgnoreCase))
             {
-                topTabs.AddRange(AppProcessor.Auto_Tabs);
+                topTabs.AddRange(autoTabs);
             }
             else if (config.autoCategory.Equals(Config.Category_Left, StringComparison.OrdinalIgnoreCase))
             {
-                leftTabs.AddRange(AppProcessor.Auto_Tabs);
+                leftTabs.AddRange(autoTabs);
             }
             else if (config.autoCategory.Equals(Config.Category_Right, StringComparison.OrdinalIgnoreCase))
             {
-                rightTabs.AddRange(AppProcessor.Auto_Tabs);
+                rightTabs.AddRange(autoTabs);
             }
 
             // Set custom tabs, sorted alphabetically
@@ -168,8 +184,8 @@ namespace QuestAppLauncher
             }
 
             // Populate grid with app information (name & icon)
-            // Sort by app name
-            foreach (var app in apps.OrderBy(key => key.Value.AppName))
+            // Sort by custom comparer
+            foreach (var app in apps.OrderBy(key => key.Value, new AppComparer()))
             {
                 // Add to all tab
                 await AddCellToGridAsync(app.Value, gridContents[AppProcessor.Tab_All].transform);

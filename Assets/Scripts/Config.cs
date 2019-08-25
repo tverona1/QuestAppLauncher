@@ -20,6 +20,10 @@ namespace QuestAppLauncher
         public const string Category_Left = "left";
         public const string Category_Right = "right";
 
+        // Sort settings
+        public const string Sort_AZ = "az";
+        public const string Sort_MostRecent = "mostRecent";
+
         // Download repos
         public const string DownloadRepo_Type_GitHub = "github";
         public const string DownloadRepo_Default = @"tverona1/QuestAppLauncher_Assets/releases/latest";
@@ -47,6 +51,9 @@ namespace QuestAppLauncher
         // Grid size, specified as cols x rows
         public GridSize gridSize = new GridSize();
 
+        // Sort mode
+        public string sortMode = Sort_AZ;
+
         // Whether to show 2D apps
         public bool show2D = false;
 
@@ -60,10 +67,18 @@ namespace QuestAppLauncher
         public bool autoUpdate = false;
 
         // Github download repos
-        public List<DownloadRepo> downloadRepos = new List<DownloadRepo>()
+        public List<DownloadRepo> downloadRepos = new List<DownloadRepo>();
+
+        public Config(bool initDefaults = false)
         {
-            new DownloadRepo { repoUri = DownloadRepo_Default, type = DownloadRepo_Type_GitHub }
-        };
+            if (initDefaults)
+            {
+                // We must initialize any default collection values here. Otherwise, if we initialize them inline,
+                // we'll keep adding duplicate values whenever we persist via JSON.NET (since it invokes the default contructor as part
+                // of deserialization, which again adds the default value).
+                this.downloadRepos.Add(new DownloadRepo { repoUri = DownloadRepo_Default, type = DownloadRepo_Type_GitHub });
+            }
+        }
     }
 
     /// <summary>
@@ -102,7 +117,7 @@ namespace QuestAppLauncher
             }
 
             // Return default config
-            return new Config();
+            return new Config(true);
         }
 
         /// <summary>
