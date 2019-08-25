@@ -67,10 +67,18 @@ namespace QuestAppLauncher
         public bool autoUpdate = false;
 
         // Github download repos
-        public List<DownloadRepo> downloadRepos = new List<DownloadRepo>()
+        public List<DownloadRepo> downloadRepos = new List<DownloadRepo>();
+
+        public Config(bool initDefaults = false)
         {
-            new DownloadRepo { repoUri = DownloadRepo_Default, type = DownloadRepo_Type_GitHub }
-        };
+            if (initDefaults)
+            {
+                // We must initialize any default collection values here. Otherwise, if we initialize them inline,
+                // we'll keep adding duplicate values whenever we persist via JSON.NET (since it invokes the default contructor as part
+                // of deserialization, which again adds the default value).
+                this.downloadRepos.Add(new DownloadRepo { repoUri = DownloadRepo_Default, type = DownloadRepo_Type_GitHub });
+            }
+        }
     }
 
     /// <summary>
@@ -109,7 +117,7 @@ namespace QuestAppLauncher
             }
 
             // Return default config
-            return new Config();
+            return new Config(true);
         }
 
         /// <summary>

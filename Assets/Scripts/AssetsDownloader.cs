@@ -25,6 +25,9 @@ namespace QuestAppLauncher
         // Manifest file to track what we've downloaded
         const string DownloadManifestFile = "download_manifest.json";
 
+        // Temporary filename for download
+        const string TempDownloadFileExtention = ".tmp_download";
+
         // GitHub API url
         const string GithubApiUrl = @"http://api.github.com/repos/";
 
@@ -179,7 +182,9 @@ namespace QuestAppLauncher
         {
             // Get asset info from repos
             var assetsInfo = new Dictionary<string, AssetInfo>(StringComparer.OrdinalIgnoreCase);
-            var reposLoaded = new HashSet<string>();
+
+            // Get the set of repo URIs (removing any duplicates)
+            var configRepos = new HashSet<string>();
             foreach (var item in config.downloadRepos)
             {
                 if (null == item.type || !string.Equals(item.type, Config.DownloadRepo_Type_GitHub, StringComparison.OrdinalIgnoreCase))
@@ -188,11 +193,17 @@ namespace QuestAppLauncher
                     continue;
                 }
 
+                configRepos.Add(item.repoUri);
+            }
+
+            var reposLoaded = new HashSet<string>();
+            foreach (var repoUri in configRepos)
+            {
                 // Get assets from the GitHub repo
-                var repoLoaded = await GetAssetsInfoFromGithubRepoAsync(item.repoUri, assetsInfo, downloadProgress);
+                var repoLoaded = await GetAssetsInfoFromGithubRepoAsync(repoUri, assetsInfo, downloadProgress);
                 if (repoLoaded)
                 {
-                    reposLoaded.Add(item.repoUri);
+                    reposLoaded.Add(repoUri);
                 }
             }
 
@@ -368,6 +379,7 @@ namespace QuestAppLauncher
             IDownloadProgress downloadProgress)
         {
             var filePath = Path.Combine(GetOrCreateDownloadPath(), name);
+            var tempFilePath = filePath + TempDownloadFileExtention;
             Debug.LogFormat("Downloading asset {0} from {1}", filePath, assetInfo.Url);
 
             try
@@ -380,7 +392,7 @@ namespace QuestAppLauncher
                     {
                         downloadProgress.OnDownloadStart(name);
                     }
-                    var downloadHandler = new DownloadHandlerFileWithProgress(filePath, downloadProgress.OnDownloadProgress);
+                    var downloadHandler = new DownloadHandlerFileWithProgress(tempFilePath, downloadProgress.OnDownloadProgress);
                     downloadHandler.removeFileOnAbort = true;
                     req.downloadHandler = downloadHandler;
                     await req.SendWebRequest();
@@ -394,8 +406,23 @@ namespace QuestAppLauncher
                             downloadProgress.OnError(string.Format("Error updating: {0} ({1})",
                                 req.error, assetInfo.Url));
                         }
+
+                        if (File.Exists(tempFilePath))
+                        {
+                            File.Delete(tempFilePath);
+                        }
+
                         return false;
                     }
+
+                    // Rename temp file to desination file to ensure that we are not downloading
+                    // an error body message into the destination file.
+                    if (File.Exists(filePath))
+                    {
+                        File.Delete(filePath);
+                    }
+
+                    File.Move(tempFilePath, filePath);
 
                     if (null != downloadProgress)
                     {
