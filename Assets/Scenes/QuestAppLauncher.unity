@@ -1444,7 +1444,7 @@ PrefabInstance:
         type: 3}
       propertyPath: m_modelOculusGoController
       value: 
-      objectReference: {fileID: 0}
+      objectReference: {fileID: 407379521}
     m_RemovedComponents: []
   m_SourcePrefab: {fileID: 100100000, guid: 5c706126fee98a74ea509233e2a32a7f, type: 3}
 --- !u!4 &174121772 stripped
@@ -2791,7 +2791,7 @@ GameObject:
   m_Icon: {fileID: 0}
   m_NavMeshLayer: 0
   m_StaticEditorFlags: 0
-  m_IsActive: 0
+  m_IsActive: 1
 --- !u!4 &407379522
 Transform:
   m_ObjectHideFlags: 0
@@ -11872,7 +11872,7 @@ GameObject:
   m_Icon: {fileID: 0}
   m_NavMeshLayer: 0
   m_StaticEditorFlags: 0
-  m_IsActive: 0
+  m_IsActive: 1
 --- !u!4 &1644749161
 Transform:
   m_ObjectHideFlags: 0
@@ -14895,7 +14895,7 @@ PrefabInstance:
         type: 3}
       propertyPath: m_modelOculusGoController
       value: 
-      objectReference: {fileID: 0}
+      objectReference: {fileID: 1644749160}
     m_RemovedComponents: []
   m_SourcePrefab: {fileID: 100100000, guid: 411c0b99f954d1d4884fa0d6256933cf, type: 3}
 --- !u!1 &2057963232

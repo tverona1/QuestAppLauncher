@@ -4,6 +4,8 @@ using UnityEngine;
 
 public class AppEntry : MonoBehaviour
 {
+    public GameObject sprite;
+
     public string packageId;
     public string appName;
 
