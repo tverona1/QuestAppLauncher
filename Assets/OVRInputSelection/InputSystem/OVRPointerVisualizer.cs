@@ -39,6 +39,9 @@ namespace ControllerSelection {
         [Tooltip("Show gaze pointer as ray pointer.")]
         public bool showRayPointer = true;
 
+        // Start ray draw distance
+        private const float StartRayDrawDistance = 0.032f;
+
         [HideInInspector]
         public OVRInput.Controller activeController = OVRInput.Controller.None;
 
@@ -73,7 +76,7 @@ namespace ControllerSelection {
             }
 
             if (linePointer != null) {
-                linePointer.SetPosition(0, ray.origin);
+                linePointer.SetPosition(0, ray.origin + ray.direction * StartRayDrawDistance);
                 linePointer.SetPosition(1, ray.origin + ray.direction * hitRayDrawDistance);
             }
 

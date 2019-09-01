@@ -55,7 +55,7 @@ namespace QuestAppLauncher
         public string sortMode = Sort_AZ;
 
         // Whether to show 2D apps
-        public bool show2D = false;
+        public bool show2D = true;
 
         // Auto Category: Apps are automatically categorized into 3 tabs - Quest, Go/GearVr, 2D
         public string autoCategory = Category_Top;

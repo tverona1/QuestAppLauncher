@@ -78,6 +78,14 @@ namespace QuestAppLauncher
             {
                 moveVector = OVRInput.Get(OVRInput.Axis2D.SecondaryThumbstick);
             }
+            if (moveVector.x == 0 && moveVector.y == 0)
+            {
+                moveVector = OVRInput.Get(OVRInput.Axis2D.PrimaryTouchpad);
+            }
+            if (moveVector.x == 0 && moveVector.y == 0)
+            {
+                moveVector = OVRInput.Get(OVRInput.Axis2D.SecondaryTouchpad);
+            }
 
             if (moveVector.y == 0)
             {

@@ -337,13 +337,17 @@ namespace QuestAppLauncher
             // Set the icon image
             if (null != bytesIcon)
             {
-                var image = newObj.transform.Find("AppIcon").GetComponentInChildren<Image>();
-                var texture = new Texture2D(2, 2, TextureFormat.RGB24, false);
+                var texture = new Texture2D(2, 2, TextureFormat.RGBA32, false);
                 texture.filterMode = FilterMode.Trilinear;
                 texture.anisoLevel = 16;
                 texture.LoadImage(bytesIcon);
                 var rect = new Rect(0, 0, texture.width, texture.height);
+                var image = appEntry.sprite.GetComponent<Image>();
                 image.sprite = Sprite.Create(texture, rect, new Vector2(0.5f, 0.5f));
+
+                // Preserve icon's aspect ratio
+                var aspectRatioFitter = appEntry.sprite.GetComponent<AspectRatioFitter>();
+                aspectRatioFitter.aspectRatio = (float)texture.width / (float)texture.height;
             }
 
             // Set app name in text
