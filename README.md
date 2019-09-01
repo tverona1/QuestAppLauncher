@@ -41,7 +41,7 @@ Create a file called **appnames.json**. Add an entry with package-id as key and 
 "com.othercompany.myapp":{"name": "Other Application"}
 ```
 
-Copy this file (appnames.json) to the following location on your Quest: Android/data/aaa.QuestAppLauncher.App/files
+Copy this file (appnames.json) to the following location on your Quest: **Android/data/aaa.QuestAppLauncher.App/files**
 
 Note: Multiple appnames*.json files are supported. If multiple files are present, they are applied in sorted order of the filenames. This allows for a single "master" appnames.json file and then additional files to override it (like appnames_custom.json).
 
@@ -52,7 +52,7 @@ Create an iconpack.zip file that contains a jpg file per app with the package-id
 com.mycompany.myapp.jpg  
 com.thirdcompany.yetanotherapp.jpg  
 
-Copy the iconpack.zip to the following location on your Quest: Android/data/aaa.QuestAppLauncher.App/files
+Copy the iconpack.zip to the following location on your Quest: **Android/data/aaa.QuestAppLauncher.App/files**
 
 Note: Multiple iconpack*.zip files are supported. If multiple files are present, they are applied in sorted order of the filenames. This allows for a single "master" iconpack.zip file and then additional files to override it (like iconpack_custom.zip).
 
