@@ -23,6 +23,7 @@ import java.util.Calendar;
 import java.util.Map;
 import java.util.zip.ZipEntry;
 import java.util.zip.ZipInputStream;
+import java.util.zip.ZipOutputStream;
 import android.os.Bundle;
 import android.util.Log;
 import android.graphics.Bitmap;
@@ -152,7 +153,6 @@ public class AppInfo extends UnityPlayerActivity {
     }
 
     public static void unzip(String zipFileName, String targetPath) {
-
         File outDir = new File(targetPath);
 
         // Create target path if not exist
@@ -181,9 +181,85 @@ public class AppInfo extends UnityPlayerActivity {
                         }
                     }
                 }
+
+                stream.closeEntry();
             }
         } catch (Exception e) {
-            System.out.println(e);
+            e.printStackTrace();
+        }
+    }
+
+    public static void addFileToZip(String zipFilePath, String sourceFilePath, String entryName)
+    {
+        Log.v(TAG, "Adding to zip: " + sourceFilePath + " to " + zipFilePath + " with entry name " + entryName);
+
+        File zipFile = new File(zipFilePath);
+        File tempZipFile;
+        byte[] buffer = new byte[8192];
+
+        try {
+            // Create temporary zip file in same location as zip file
+            tempZipFile = File.createTempFile(zipFile.getName(), null, new File(zipFile.getParent()));
+        } catch (Exception e) {
+            e.printStackTrace();
+            return;
+        }
+
+        try (FileOutputStream fos = new FileOutputStream(tempZipFile);
+                BufferedOutputStream bos = new BufferedOutputStream(fos, buffer.length);
+                ZipOutputStream zos = new ZipOutputStream(bos)) {
+
+            if (zipFile.exists()) {
+                try (FileInputStream fis = new FileInputStream(zipFilePath);
+                        BufferedInputStream bis = new BufferedInputStream(fis);
+                        ZipInputStream zin = new ZipInputStream(bis)) {
+
+                    // Copy contents of input zip file to temp zip file
+                    ZipEntry ze = null;
+                    while ((ze = zin.getNextEntry()) != null) {
+                        if (ze.getName().equalsIgnoreCase(entryName)) {
+                            // The file we're trying to add already exists, so skip it
+                            continue;
+                        }
+
+                        zos.putNextEntry(ze);
+                        int len;
+                        while ((len = zin.read(buffer)) > 0) {
+                            zos.write(buffer, 0, len);
+                        }
+                        zos.closeEntry();
+                    }
+                }
+            }
+
+            // Add our new file
+            zos.putNextEntry(new ZipEntry(entryName));
+            try (FileInputStream fileFis = new FileInputStream(sourceFilePath);
+                    BufferedInputStream fileBis = new BufferedInputStream(fileFis)) {
+                int len;
+                while ((len = fileBis.read(buffer)) > 0) {
+                    zos.write(buffer, 0, len);
+                }
+            }
+            zos.closeEntry();
+            zos.finish();
+            zos.close();
+            bos.close();
+            fos.close();
+
+            // Copy temp file to original zip file
+            if (zipFile.exists()) {
+                zipFile.delete();
+            }
+            if (!tempZipFile.renameTo(zipFile)) {
+                throw new Exception("Could not rename file " + tempZipFile.getName() + " to " + zipFile.getName());
+            }
+        } catch (Exception e) {
+            e.printStackTrace();
+        } finally {
+            if (tempZipFile.exists()) {
+                tempZipFile.delete();
+            }
         }
     }
 

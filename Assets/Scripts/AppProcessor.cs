@@ -16,7 +16,7 @@ namespace QuestAppLauncher
     /// </summary>
     public class ProcessedApp
     {
-        public int Index;
+        public int Index = -1;
         public string PackageName;
         public string AppName;
         public string AutoTabName;
@@ -32,7 +32,7 @@ namespace QuestAppLauncher
         /// Class used to deserialize appnames.json entries
         /// </summary>
         [Serializable]
-        class JsonAppNamesEntry
+        public class JsonAppNamesEntry
         {
             public string Name;
             public string Category;
@@ -42,6 +42,10 @@ namespace QuestAppLauncher
         // File name of app name overrides
         const string AppNameOverrideTxtFileSearch = "appnames*.txt";
         const string AppNameOverrideJsonFileSearch = "appnames*.json";
+
+        // Rename file names
+        public const string RenameJsonFileName = "appnames_rename.json";
+        public const string RenameIconPackFileName = "iconpack_rename.zip";
 
         // Icon pack search string
         const string IconPackSearch = "iconpack*.zip";
@@ -66,7 +70,14 @@ namespace QuestAppLauncher
 
         public static readonly string[] Auto_Tabs = { Tab_Quest, Tab_Go, Tab_2D };
 
-        public static Dictionary<string, ProcessedApp> ProcessApps(Config config)
+        /// <summary>
+        /// Entry point for app processing: Applies app name overrides (from appnames.txt/json) and app icons (from individual jpgs or icon packs).
+        /// Handles extraction of icon packs if zip file modified. Returns a list of processed apps.
+        /// </summary>
+        /// <param name="config">Application config</param>
+        /// <param name="isRenameMode">Whether in rename mode. If so, returns all apps found, not just installed ones.</param>
+        /// <returns>Dictionary of processed apps</returns>
+        public static Dictionary<string, ProcessedApp> ProcessApps(Config config, bool isRenameMode = false)
         {
             var persistentDataPath = UnityEngine.Application.persistentDataPath;
             Debug.Log("Persistent data path: " + persistentDataPath);
@@ -78,7 +89,6 @@ namespace QuestAppLauncher
             using (AndroidJavaClass unity = new AndroidJavaClass("com.unity3d.player.UnityPlayer"))
             using (AndroidJavaObject currentActivity = unity.GetStatic<AndroidJavaObject>("currentActivity"))
             {
-
                 // Get # of installed apps
                 int numApps = currentActivity.Call<int>("getSize");
                 Debug.Log("# installed apps: " + numApps);
@@ -91,12 +101,16 @@ namespace QuestAppLauncher
                     processedLastTimeUsed = true;
                 }
 
-                // Add current package name to excludedPackageNames to filter it out
-                excludedPackageNames.Add(currentActivity.Call<string>("getPackageName"));
+                if (!isRenameMode)
+                {
+                    // Add current package name to excludedPackageNames to filter it out
+                    excludedPackageNames.Add(currentActivity.Call<string>("getPackageName"));
+                }
 
-                // This is a file containing packageNames that will be excluded
+                // This is a file containing packageNames that will be excluded.
+                // Skip this if in rename mode.
                 var excludedPackageNamesFilePath = Path.Combine(persistentDataPath, ExcludedPackagesFile);
-                if (File.Exists(excludedPackageNamesFilePath))
+                if (!isRenameMode && File.Exists(excludedPackageNamesFilePath))
                 {
                     Debug.Log("Found file: " + excludedPackageNamesFilePath);
                     string[] excludedPackages = File.ReadAllLines(excludedPackageNamesFilePath);
@@ -151,16 +165,16 @@ namespace QuestAppLauncher
                 }
 
                 // Process app name overrides files (both downloaded & manually created)
-                ProcessAppNameOverrideFiles(apps, AssetsDownloader.GetOrCreateDownloadPath());
-                ProcessAppNameOverrideFiles(apps, persistentDataPath);
+                ProcessAppNameOverrideFiles(isRenameMode, apps, AssetsDownloader.GetOrCreateDownloadPath());
+                ProcessAppNameOverrideFiles(isRenameMode, apps, persistentDataPath);
 
                 // Extract icon packs (both downloaded & manually created)
                 ExtractIconPacks(currentActivity, AssetsDownloader.GetOrCreateDownloadPath());
                 ExtractIconPacks(currentActivity, persistentDataPath);
 
                 // Process extracted icons (both downloaded & manually created)
-                ProcessExtractedIcons(apps, AssetsDownloader.GetOrCreateDownloadPath());
-                ProcessExtractedIcons(apps, persistentDataPath);
+                ProcessExtractedIcons(isRenameMode, apps, AssetsDownloader.GetOrCreateDownloadPath());
+                ProcessExtractedIcons(isRenameMode, apps, persistentDataPath);
 
                 // Process any individual icons
                 var iconOverridePath = persistentDataPath;
@@ -173,25 +187,32 @@ namespace QuestAppLauncher
             return apps;
         }
 
-        private static void ProcessAppNameOverrideFiles(Dictionary<string, ProcessedApp> apps, string path)
+        private static void ProcessAppNameOverrideFiles(bool isRenameMode, Dictionary<string, ProcessedApp> apps, string path)
         {
             // Process appname*.json files, sorted by name
             foreach (var filePath in Directory.GetFiles(
                 path, AppNameOverrideJsonFileSearch).OrderBy(f => f))
             {
-                ProcessAppNameOverrideJsonFile(apps, filePath);
+                ProcessAppNameOverrideJsonFile(isRenameMode, apps, filePath);
             }
 
             // Process appname*.txt files, sorted by name
             foreach (var filePath in Directory.GetFiles(
                 path, AppNameOverrideTxtFileSearch).OrderBy(f => f))
             {
-                ProcessAppNameOverrideTxtFile(apps, filePath);
+                ProcessAppNameOverrideTxtFile(isRenameMode, apps, filePath);
             }
         }
 
-        private static void ProcessAppNameOverrideJsonFile(Dictionary<string, ProcessedApp> apps, string appNameOverrideFilePath)
+        private static void ProcessAppNameOverrideJsonFile(bool isRenameMode, Dictionary<string, ProcessedApp> apps, string appNameOverrideFilePath)
         {
+            if (isRenameMode && appNameOverrideFilePath.Equals(Path.Combine(UnityEngine.Application.persistentDataPath, RenameJsonFileName),
+                StringComparison.InvariantCultureIgnoreCase))
+            {
+                // In rename mode, so skip the rename json file itself
+                return;
+            }
+
             // Override app names, if any
             Debug.Log("Found file: " + appNameOverrideFilePath);
 
@@ -207,7 +228,17 @@ namespace QuestAppLauncher
 
                     if (!apps.ContainsKey(packageName))
                     {
-                        // App is not installed, so skip
+                        // App is not installed
+                        if (isRenameMode)
+                        {
+                            // If rename mode, just add it
+                            apps[packageName] = new ProcessedApp
+                            {
+                                PackageName = packageName,
+                                AppName = appName,
+                            };
+                        }
+
                         continue;
                     }
 
@@ -264,7 +295,7 @@ namespace QuestAppLauncher
             }
         }
 
-        private static void ProcessAppNameOverrideTxtFile(Dictionary<string, ProcessedApp> apps, string appNameOverrideFilePath)
+        private static void ProcessAppNameOverrideTxtFile(bool isRenameMode, Dictionary<string, ProcessedApp> apps, string appNameOverrideFilePath)
         {
             // Override app names, if any
             // This is just a file with comma-separated packageName,appName[,category1[, category2]]
@@ -295,7 +326,17 @@ namespace QuestAppLauncher
 
                 if (!apps.ContainsKey(packageName))
                 {
-                    // App is not installed, so skip
+                    // App is not installed
+                    if (isRenameMode)
+                    {
+                        // If rename mode, so just add it
+                        apps[packageName] = new ProcessedApp
+                        {
+                            PackageName = packageName,
+                            AppName = appName,
+                        };
+                    }
+
                     continue;
                 }
 
@@ -401,7 +442,7 @@ namespace QuestAppLauncher
             }
         }
 
-        private static void ProcessExtractedIcons(Dictionary<string, ProcessedApp> apps, string iconsPath)
+        private static void ProcessExtractedIcons(bool isRenameMode, Dictionary<string, ProcessedApp> apps, string iconsPath)
         {
             // Full path of extraction dir
             var extractionDirPath = Path.Combine(iconsPath, IconPackExtractionDir);
@@ -412,6 +453,13 @@ namespace QuestAppLauncher
                 var dirs = Directory.GetDirectories(extractionDirPath).OrderBy(f => f);
                 foreach (var dir in dirs)
                 {
+                    if (isRenameMode && dir.StartsWith(Path.Combine(UnityEngine.Application.persistentDataPath, RenameIconPackFileName),
+                        StringComparison.InvariantCultureIgnoreCase))
+                    {
+                        // In rename mode, so skip the extracted rename icon pack itself
+                        continue;
+                    }
+
                     ProcessIconsInPath(apps, dir);
                 }
             }
@@ -449,7 +497,7 @@ namespace QuestAppLauncher
                 catch (Exception e)
                 {
                     // Fall back to using the apk icon
-                    Debug.Log(string.Format("Error reading app icon from file [{0}]: {1}", iconPath, e.Message));
+                    Debug.LogFormat("Error reading app icon from file [{0}]: {1}", iconPath, e.Message);
                 }
             }
 
@@ -498,6 +546,30 @@ namespace QuestAppLauncher
             }
 
             return false;
+        }
+
+        /// <summary>
+        /// Static method to delete the rename json and icon pack
+        /// </summary>
+        /// <returns>true if file exists</returns>
+        static public bool DeleteRenameFiles()
+        {
+            var ret = false;
+            var renameJsonFilePath = Path.Combine(UnityEngine.Application.persistentDataPath, RenameJsonFileName);
+            if (File.Exists(renameJsonFilePath))
+            {
+                File.Delete(renameJsonFilePath);
+                ret = true;
+            }
+
+            var renameIconPackFilePath = Path.Combine(UnityEngine.Application.persistentDataPath, RenameIconPackFileName);
+            if (File.Exists(renameIconPackFilePath))
+            {
+                File.Delete(renameIconPackFilePath);
+                ret = true;
+            }
+
+            return ret;
         }
 
         /// <summary>

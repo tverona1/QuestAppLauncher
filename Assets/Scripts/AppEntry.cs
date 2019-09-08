@@ -8,6 +8,9 @@ public class AppEntry : MonoBehaviour
 
     public string packageId;
     public string appName;
+    public string externalIconPath;
+    public int installedApkIndex;
+    public bool isRenameMode;
 
     // Start is called before the first frame update
     void Start()

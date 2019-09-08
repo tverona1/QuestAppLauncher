@@ -137,7 +137,6 @@ namespace QuestAppLauncher
             {
                 Debug.Log(string.Format("Failed to write config: {0}", e.Message));
             }
-
         }
     }
 }

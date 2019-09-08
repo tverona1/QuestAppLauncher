@@ -105,7 +105,7 @@ namespace QuestAppLauncher
                 {
                     // We downloaded new assets, so re-load the scene
                     Debug.Log("Downloaded new assets. Re-populating panel");
-                    SceneManager.LoadScene(SceneManager.GetActiveScene().name);
+                    SceneManager.LoadSceneAsync(SceneManager.GetActiveScene().name);
                 }
             });
         }

@@ -39,6 +39,7 @@ namespace QuestAppLauncher
         public GameObject usageStatsPermText;
 
         private bool deletedHiddenAppsFile = false;
+        private bool deletedRenameFiles = false;
 
         private Config config = null;
 
@@ -49,6 +50,9 @@ namespace QuestAppLauncher
             this.openSettingsButton.SetActive(false);
             this.closeSettingsButton.SetActive(true);
             this.settingsContainer.SetActive(true);
+
+            this.deletedHiddenAppsFile = false;
+            this.deletedRenameFiles = false;
 
             // Load config
             this.config = ConfigPersistence.LoadConfig();
@@ -138,6 +142,16 @@ namespace QuestAppLauncher
             }
         }
 
+        public void DeleteRenameFiles()
+        {
+            Debug.Log("Delete Rename files");
+
+            if (!this.deletedRenameFiles)
+            {
+                this.deletedRenameFiles = AppProcessor.DeleteRenameFiles();
+            }
+        }
+
         public void UpdateGridColText()
         {
             var cols = gridCols.GetComponent<Slider>().value;
@@ -211,7 +225,7 @@ namespace QuestAppLauncher
             });
         }
 
-        private void PersistConfig()
+        private async void PersistConfig()
         {
             bool saveConfig = false;
 
@@ -317,10 +331,10 @@ namespace QuestAppLauncher
             }
 
             // If we touched the config file or we deleted the hidden apps file, re-populate the grid
-            if (saveConfig || deletedHiddenAppsFile)
+            if (saveConfig || this.deletedHiddenAppsFile || this.deletedRenameFiles)
             {
                 Debug.Log("Re-populating panel");
-                SceneManager.LoadScene(SceneManager.GetActiveScene().name);
+                await SceneManager.LoadSceneAsync(SceneManager.GetActiveScene().name);
             }
         }
     }
