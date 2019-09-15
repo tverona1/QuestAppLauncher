@@ -12,6 +12,7 @@ An app launcher for Quest implemented in Unity.
 * Support for sorting alphabetically or by most recently used
 * Support for renaming apps
 * Support for custom 360/cubemap 3D backgrounds
+* Supports both Oculus Quest and Go devices
 
 ## Getting Started
 
