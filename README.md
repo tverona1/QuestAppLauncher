@@ -35,7 +35,7 @@ Note: Auto-update is enabled by default.
 Note: Default repository for app icons and names is [https://github.com/tverona1/QuestAppLauncher_assets]. This can be configured in config.json (see below).
 
 ### Custom 3D Backgrounds
-Customer 3D background images are supported. Both 360 degree (equirectangular) and 6-side (cubemap) images are supported. This is automatically detected based on aspect ratio (with cubemap having 4:3 aspect ratio).
+Custom 3D background images are supported. Both 360 degree (equirectangular) and 6-side (cubemap) images are supported. This is automatically detected based on aspect ratio (with cubemap having 4:3 aspect ratio).
 
 To set up custom 3D backgrounds:
 1. Copy your background images (either jpg or png) to the following location on your Quest: **Android/data/aaa.QuestAppLauncher.App/files/backgrounds**  
