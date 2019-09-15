@@ -52,7 +52,7 @@ To rename an app (i.e. to pick a different app name / icon for it), highlight th
 Note: It is recommended that you download the app names / icon packs first (see above) in order to populate a full list of app to choose from.
 
 ## Manually configuring the launcher (for advanced users only)
-The below sections described ways to manuallyze configure the launcher. This is intended for advanced users only and is typically not necessary, as everything is supported via the Settings UI within the app.
+The below sections described ways to manually configure the launcher. This is intended for advanced users only and is typically not necessary, as everything is supported via the Settings UI within the app.
 
 ### Manually overriding app icons and names
 It is possible to manually configure app icons and names rather than automatically downloading them. This section describes how.
