@@ -1,6 +1,7 @@
 ﻿using System;
 using System.Collections;
 using System.Collections.Generic;
+using System.IO;
 using UnityEngine;
 using UnityEngine.UI;
 using UnityEngine.SceneManagement;
@@ -21,7 +22,9 @@ namespace QuestAppLauncher
         public GameObject gridPopulation;
         public GameObject show2DToggle;
         public GameObject autoUpdateToggle;
+        public GameObject skyBoxButton;
         public DownloadStatusIndicator downloadStatusIndicator;
+        public SkyboxHandler skyboxHandler;
 
         public Toggle tabsAutoOff;
         public Toggle tabsAutoTop;
@@ -39,6 +42,7 @@ namespace QuestAppLauncher
         public GameObject usageStatsPermText;
 
         private bool deletedHiddenAppsFile = false;
+        private bool deletedRenameFiles = false;
 
         private Config config = null;
 
@@ -50,8 +54,14 @@ namespace QuestAppLauncher
             this.closeSettingsButton.SetActive(true);
             this.settingsContainer.SetActive(true);
 
+            this.deletedHiddenAppsFile = false;
+            this.deletedRenameFiles = false;
+
             // Load config
             this.config = ConfigPersistence.LoadConfig();
+
+            // Skybox callback
+            this.skyboxHandler.OnSkyboxSelected = OnSkyboxSelected;
 
             // Set current cols & rows
             var colsSlider = this.gridCols.GetComponent<Slider>();
@@ -70,6 +80,9 @@ namespace QuestAppLauncher
 
             // Set 2D toggle
             this.show2DToggle.GetComponent<Toggle>().SetIsOnWithoutNotify(this.config.show2D);
+
+            // Set skybox button text
+            this.skyBoxButton.GetComponentInChildren<TextMeshProUGUI>().text = SkyboxHandler.GetSkyboxNameFromPath(this.config.background);
 
             // Set auto-update toggle
             this.autoUpdateToggle.GetComponent<Toggle>().SetIsOnWithoutNotify(this.config.autoUpdate);
@@ -138,6 +151,29 @@ namespace QuestAppLauncher
             }
         }
 
+        public void OnSkyboxSelected(string skyboxPath)
+        {
+            // Update text
+            this.skyBoxButton.GetComponentInChildren<TextMeshProUGUI>().text = SkyboxHandler.GetSkyboxNameFromPath(skyboxPath);
+
+            // Save config with new skybox selection
+            if (!this.config.background.Equals(skyboxPath, StringComparison.OrdinalIgnoreCase))
+            {
+                this.config.background = skyboxPath;
+                ConfigPersistence.SaveConfig(this.config);
+            }
+        }
+
+        public void DeleteRenameFiles()
+        {
+            Debug.Log("Delete Rename files");
+
+            if (!this.deletedRenameFiles)
+            {
+                this.deletedRenameFiles = AppProcessor.DeleteRenameFiles();
+            }
+        }
+
         public void UpdateGridColText()
         {
             var cols = gridCols.GetComponent<Slider>().value;
@@ -150,6 +186,11 @@ namespace QuestAppLauncher
             var rows = gridRows.GetComponent<Slider>().value;
             var rowsText = this.gridRowsText.GetComponent<TextMeshProUGUI>();
             rowsText.text = string.Format("{0} Rows", rows);
+        }
+
+        public void ShowSkyboxList()
+        {
+            this.skyboxHandler.ShowList();
         }
 
         private bool HasUsageStatsPermissions()
@@ -211,7 +252,7 @@ namespace QuestAppLauncher
             });
         }
 
-        private void PersistConfig()
+        private async void PersistConfig()
         {
             bool saveConfig = false;
 
@@ -317,10 +358,10 @@ namespace QuestAppLauncher
             }
 
             // If we touched the config file or we deleted the hidden apps file, re-populate the grid
-            if (saveConfig || deletedHiddenAppsFile)
+            if (saveConfig || this.deletedHiddenAppsFile || this.deletedRenameFiles)
             {
                 Debug.Log("Re-populating panel");
-                SceneManager.LoadScene(SceneManager.GetActiveScene().name);
+                await SceneManager.LoadSceneAsync(SceneManager.GetActiveScene().name);
             }
         }
     }

@@ -1,16 +1,17 @@
 ﻿using UnityEngine;
 using UnityEngine.SceneManagement;
 using UnityEngine.UI;
+using System.Threading.Tasks;
 
 namespace QuestAppLauncher
 {
     public class OnInteraction : MonoBehaviour
     {
-        protected Material oldHoverMat;
-        public Material yellowMat;
-        public Material backIdle;
-        public Material backACtive;
-        public UnityEngine.UI.Text outText;
+        // Hide app handler
+        public HideAppHandler hideAppHandler;
+
+        // Rename app handler
+        public RenameHandler renameHandler;
 
         public void OnHoverEnter(Transform t)
         {
@@ -32,28 +33,51 @@ namespace QuestAppLauncher
             }
         }
 
-        public void OnSelected(Transform t)
+        public async void OnSelected(Transform t)
         {
             var appEntry = t.gameObject.GetComponent("AppEntry") as AppEntry;
             if (null != appEntry)
             {
-                // Launch app
-                Debug.Log("Launching: " + appEntry.appName + " (package id: " + appEntry.packageId + ")");
-                AppProcessor.LaunchApp(appEntry.packageId);
+                if (appEntry.isRenameMode)
+                {
+                    this.renameHandler.Rename(appEntry);
+                }
+                else
+                {
+                    await Task.Run(() =>
+                    {
+                        AndroidJNI.AttachCurrentThread();
+
+                        try
+                        {
+                            // Launch app
+                            Debug.Log("Launching: " + appEntry.appName + " (package id: " + appEntry.packageId + ")");
+                            AppProcessor.LaunchApp(appEntry.packageId);
+                        }
+                        finally
+                        {
+                            AndroidJNI.DetachCurrentThread();
+                        }
+                    });
+                }
             }
         }
 
         public void OnSelectedPressedBorY(Transform t)
         {
             var appEntry = t.gameObject.GetComponent("AppEntry") as AppEntry;
-            if (null != appEntry)
+            if (null != appEntry && !appEntry.isRenameMode)
             {
-                // Add package name to excluded file
-                Debug.Log("Hiding: " + appEntry.appName + " (package id: " + appEntry.packageId + ")");
-                AppProcessor.AddAppToExcludedFile(appEntry.packageId);
+                this.hideAppHandler.OnHideApp(appEntry);
+            }
+        }
 
-                // Remove ourselves from the gridview
-                Destroy(t.gameObject);
+        public void OnSelectedPressedAorX(Transform t)
+        {
+            var appEntry = t.gameObject.GetComponent("AppEntry") as AppEntry;
+            if (null != appEntry && !appEntry.isRenameMode)
+            {
+                this.renameHandler.OpenRenamePanel(appEntry);
             }
         }
 

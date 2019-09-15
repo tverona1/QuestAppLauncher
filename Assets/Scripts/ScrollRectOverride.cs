@@ -9,7 +9,17 @@ namespace QuestAppLauncher
     public class ScrollRectOverride : ScrollRect, IMoveHandler, IPointerClickHandler, IScrollHandler
     {
         // Scrolling speed multiplier
-        private const float speedMultiplier = 15f;
+        private const float SpeedMultiplier = 15f;
+
+        // Maximum speed multiplier
+        private const float MaxSpeedMultiplier = 150f;
+
+        // Speed multiplier increase percentage per frame
+        // How the value is calculated: We want to increase from 15 -> 150 in ~2 sec. At 90Hz, that's ~180 frames. So 150=15*(x)^180.
+        private const float SpeedMultiplierIncrease = 1.0128f;
+
+        // Last frame's speed multiplier
+        private float lastSpeedMultiplier = 0f;
 
         // Height of a single cell in the grid
         private float cellHeight = 0f;
@@ -89,7 +99,8 @@ namespace QuestAppLauncher
 
             if (moveVector.y == 0)
             {
-                // No y-movement, so return
+                // No y-movement, so return. Also reset the speed multiplier
+                this.lastSpeedMultiplier = 0;
                 return;
             }
 
@@ -97,11 +108,13 @@ namespace QuestAppLauncher
             // and map this to a fraction of the total viewport size:
             //   moveVector.y: The thumbstick vertical position normalized to [-1,1].
             //   Time.deltaTime: The time delta since last frame
-            //   speedMultiplier: Just a multiplier to get a good scrolling speed.
+            //   speedMultiplier: Just a multiplier to get a good scrolling speed. Increase over time to speed up scrolling.
             // So, moveVector.y * Time.deltaTime * speedMultiplier = the amount to scroll in "units"
             //   proportional to thumbstick position since last frame.
             // this.cellHeight / this.content.sizeDelta.y = cell height / total content height.
+            float speedMultiplier = Mathf.Clamp(this.lastSpeedMultiplier * SpeedMultiplierIncrease, SpeedMultiplier, MaxSpeedMultiplier);
             float verticalIncrement = moveVector.y * Time.deltaTime * speedMultiplier * this.cellHeight / this.content.sizeDelta.y;
+            this.lastSpeedMultiplier = speedMultiplier;
             this.verticalNormalizedPosition = Mathf.Clamp01(this.verticalNormalizedPosition + verticalIncrement);
         }
 

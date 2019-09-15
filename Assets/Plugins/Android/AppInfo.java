@@ -19,20 +19,31 @@ import java.io.ByteArrayOutputStream;
 import java.io.File;
 import java.io.FileInputStream;
 import java.io.FileOutputStream;
+import java.nio.ByteBuffer;
+import java.nio.ByteOrder;
 import java.util.Calendar;
 import java.util.Map;
 import java.util.zip.ZipEntry;
 import java.util.zip.ZipInputStream;
+import java.util.zip.ZipOutputStream;
 import android.os.Bundle;
 import android.util.Log;
 import android.graphics.Bitmap;
+import android.graphics.BitmapFactory;
 import android.graphics.drawable.BitmapDrawable;
+import android.graphics.Color;
 import java.util.List;
 import java.util.LinkedList;
 
 class AppInfoInternal {
     public ApplicationInfo app;
     public long lastTimeUsed;
+}
+
+class DecodedBitmap {
+    int width;
+    int height;
+    byte[] rawImage;
 }
 
 public class AppInfo extends UnityPlayerActivity {
@@ -152,7 +163,6 @@ public class AppInfo extends UnityPlayerActivity {
     }
 
     public static void unzip(String zipFileName, String targetPath) {
-
         File outDir = new File(targetPath);
 
         // Create target path if not exist
@@ -181,10 +191,136 @@ public class AppInfo extends UnityPlayerActivity {
                         }
                     }
                 }
+
+                stream.closeEntry();
             }
         } catch (Exception e) {
-            System.out.println(e);
+            e.printStackTrace();
         }
+    }
+
+    public static void addFileToZip(String zipFilePath, String sourceFilePath, String entryName)
+    {
+        Log.v(TAG, "Adding to zip: " + sourceFilePath + " to " + zipFilePath + " with entry name " + entryName);
+
+        File zipFile = new File(zipFilePath);
+        File tempZipFile;
+        byte[] buffer = new byte[8192];
+
+        try {
+            // Create temporary zip file in same location as zip file
+            tempZipFile = File.createTempFile(zipFile.getName(), null, new File(zipFile.getParent()));
+        } catch (Exception e) {
+            e.printStackTrace();
+            return;
+        }
+
+        try (FileOutputStream fos = new FileOutputStream(tempZipFile);
+                BufferedOutputStream bos = new BufferedOutputStream(fos, buffer.length);
+                ZipOutputStream zos = new ZipOutputStream(bos)) {
+
+            if (zipFile.exists()) {
+                try (FileInputStream fis = new FileInputStream(zipFilePath);
+                        BufferedInputStream bis = new BufferedInputStream(fis);
+                        ZipInputStream zin = new ZipInputStream(bis)) {
+
+                    // Copy contents of input zip file to temp zip file
+                    ZipEntry ze = null;
+                    while ((ze = zin.getNextEntry()) != null) {
+                        if (ze.getName().equalsIgnoreCase(entryName)) {
+                            // The file we're trying to add already exists, so skip it
+                            continue;
+                        }
+
+                        zos.putNextEntry(ze);
+                        int len;
+                        while ((len = zin.read(buffer)) > 0) {
+                            zos.write(buffer, 0, len);
+                        }
+                        zos.closeEntry();
+                    }
+                }
+            }
+
+            // Add our new file
+            zos.putNextEntry(new ZipEntry(entryName));
+            try (FileInputStream fileFis = new FileInputStream(sourceFilePath);
+                    BufferedInputStream fileBis = new BufferedInputStream(fileFis)) {
+                int len;
+                while ((len = fileBis.read(buffer)) > 0) {
+                    zos.write(buffer, 0, len);
+                }
+            }
+            zos.closeEntry();
+            zos.finish();
+            zos.close();
+            bos.close();
+            fos.close();
+
+            // Copy temp file to original zip file
+            if (zipFile.exists()) {
+                zipFile.delete();
+            }
+            if (!tempZipFile.renameTo(zipFile)) {
+                throw new Exception("Could not rename file " + tempZipFile.getName() + " to " + zipFile.getName());
+            }
+        } catch (Exception e) {
+            e.printStackTrace();
+        } finally {
+            if (tempZipFile.exists()) {
+                tempZipFile.delete();
+            }
+        }
+    }
+
+    public static DecodedBitmap loadRawImage(String imagePath, int maxWidth, int maxHeight) {
+        Log.v(TAG, "Decoding image at " + imagePath);
+
+        try {
+            // Decode bitmap with inJustDecodeBounds=true to check dimensions
+            final BitmapFactory.Options options = new BitmapFactory.Options();
+            options.inJustDecodeBounds = true;
+            BitmapFactory.decodeFile(imagePath, options);
+
+            // Calculate inSampleSize
+            int height = options.outHeight;
+            int width = options.outWidth;
+            Log.v(TAG, "Image dimensions: " + height + "x" + width);
+
+            // Calculate the largest inSampleSize value that is a power of 2 and keeps both
+            // height and width smaller than the requested height and width.
+            options.inSampleSize = 1;
+            while ((height / options.inSampleSize) >= maxHeight
+                    || (width / options.inSampleSize) >= maxWidth) {
+                options.inSampleSize *= 2;
+            }
+            Log.v(TAG, "Image sample size: " + options.inSampleSize);
+
+            // Decode bitmap with inSampleSize set
+            options.inJustDecodeBounds = false;
+            options.inPremultiplied = false;
+            options.inPreferredConfig = Bitmap.Config.ARGB_8888;
+            options.inPreferQualityOverSpeed = true;
+            Bitmap bmp = BitmapFactory.decodeFile(imagePath, options);
+            if (null == bmp) {
+                Log.v(TAG, "Failed to decode image at " + imagePath);
+                return null;
+            }
+
+            DecodedBitmap decodedBmp = new DecodedBitmap();
+            decodedBmp.width = bmp.getWidth();
+            decodedBmp.height = bmp.getHeight();
+            ByteBuffer byteBuffer = ByteBuffer.allocate(bmp.getByteCount());
+            bmp.copyPixelsToBuffer(byteBuffer);
+            decodedBmp.rawImage = byteBuffer.array();
+
+            Log.v(TAG, "Done decoding image at " + imagePath);
+            return decodedBmp;
+        } catch (Exception e) {
+            e.printStackTrace();
+        }
+
+        return null;
     }
 
     private static void createDirIfNotExist(File path) {

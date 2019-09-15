@@ -34,6 +34,9 @@ namespace QuestAppLauncher
         // Scroll container game object
         public GameObject scrollContainer;
 
+        // SKybox handler
+        public SkyboxHandler skyboxHandler;
+
         // Tab containers
         public GameObject topTabContainer;
         public GameObject leftTabContainer;
@@ -43,6 +46,10 @@ namespace QuestAppLauncher
         public GameObject topTabContainerContent;
         public GameObject leftTabContainerContent;
         public GameObject rightTabContainerContent;
+
+        // Rename panel game objects
+        public GameObject renamePanelContainer;
+        public GameObject scrollRenameContainer;
 
         // Tracking space
         public GameObject trackingSpace;
@@ -78,16 +85,30 @@ namespace QuestAppLauncher
         }
         #endregion
 
-        #region Private Functions
+        /// <summary>
+        /// Populates rename grid
+        /// </summary>
+        /// <returns></returns>
+        public async Task PopulateRenameAsync()
+        {
+            PopulateAsync(true);
+        }
 
+        #region Private Functions
         /// <summary>
         /// Populate the grid from installed apps
         /// </summary>
         /// <returns></returns>
-        private async Task PopulateAsync()
+        private async Task PopulateAsync(bool isRenameMode = false)
         {
             // Load configuration
             var config = ConfigPersistence.LoadConfig();
+
+            // Set skybox
+            if (!isRenameMode)
+            {
+                this.skyboxHandler.SetSkybox(config.background);
+            }
 
             // Process apps in background
             var apps = await Task.Run(() =>
@@ -96,7 +117,7 @@ namespace QuestAppLauncher
 
                 try
                 {
-                    return AppProcessor.ProcessApps(config);
+                    return AppProcessor.ProcessApps(config, isRenameMode);
                 }
                 finally
                 {
@@ -105,14 +126,21 @@ namespace QuestAppLauncher
             });
 
             // Download updates in the background
-            if (config.autoUpdate && !GlobalState.Instance.CheckedForUpdate)
+            if (!isRenameMode && config.autoUpdate && !GlobalState.Instance.CheckedForUpdate)
             {
                 GlobalState.Instance.CheckedForUpdate = true;
                 AssetsDownloader.DownloadAssetsAsync(config, this.downloadStatusIndicator);
             }
 
             // Populate the panel content
-            await PopulatePanelContentAsync(config, apps);
+            if (!isRenameMode)
+            {
+                await PopulatePanelContentAsync(config, apps);
+            }
+            else
+            {
+                await PopulateRenamePanelContentAsync(config, apps);
+            }
         }
 
         private async Task PopulatePanelContentAsync(
@@ -168,14 +196,14 @@ namespace QuestAppLauncher
             // Process the tab containers
             var gridContents = new Dictionary<string, GameObject>(StringComparer.OrdinalIgnoreCase);
 
-            ProcessTabContainer(config, topTabs, this.topTabContainer, this.topTabContainerContent, true, gridContents);
-            ProcessTabContainer(config, leftTabs, this.leftTabContainer, this.leftTabContainerContent, false, gridContents);
-            ProcessTabContainer(config, rightTabs, this.rightTabContainer, this.rightTabContainerContent, false, gridContents);
+            ProcessTabContainer(config, topTabs, this.panelContainer, this.scrollContainer, this.topTabContainer, this.topTabContainerContent, true, gridContents);
+            ProcessTabContainer(config, leftTabs, this.panelContainer, this.scrollContainer, this.leftTabContainer, this.leftTabContainerContent, false, gridContents);
+            ProcessTabContainer(config, rightTabs, this.panelContainer, this.scrollContainer, this.rightTabContainer, this.rightTabContainerContent, false, gridContents);
 
             // Set panel size, use any grid content for reference (since they are all the same size)
             if (gridContents.Count > 0)
             {
-                var size = SetGridSize(gridContents.First().Value, config.gridSize.rows, config.gridSize.cols);
+                var size = SetGridSize(this.panelContainer, gridContents.First().Value, config.gridSize.rows, config.gridSize.cols);
 
                 // Adjust tab sizes
                 ResizeTabContent(this.topTabContainer.transform, size, topTabs.Count, true);
@@ -210,6 +238,28 @@ namespace QuestAppLauncher
             }
         }
 
+        private async Task PopulateRenamePanelContentAsync(
+            Config config, Dictionary<string, ProcessedApp> apps)
+        {
+            // Create scroll view
+            var scrollView = (GameObject)Instantiate(this.prefabScrollView, this.scrollRenameContainer.transform);
+            scrollView.SetActive(true);
+            var scrollRectOverride = scrollView.GetComponent<ScrollRectOverride>();
+            scrollRectOverride.trackingSpace = this.trackingSpace.transform;
+
+            var gridContent = scrollRectOverride.content.gameObject;
+
+            // Set panel size
+            SetGridSize(this.renamePanelContainer, gridContent, config.gridSize.rows, config.gridSize.cols);
+
+            // Populate grid with app information (name & icon)
+            // Sort alphabetically
+            foreach (var app in apps.OrderBy(key => key.Value.AppName, StringComparer.InvariantCultureIgnoreCase))
+            {
+                await AddCellToGridAsync(app.Value, gridContent.transform, true);
+            }
+        }
+
         private void ResizeTabContent(Transform transform, Vector2 size, int childCount, bool isHorizontal)
         {
             var rect = transform.GetComponent<RectTransform>();
@@ -235,7 +285,7 @@ namespace QuestAppLauncher
             transform.gameObject.GetComponent<ScrollButtonHandler>().RefreshScrollContent(childCount);
         }
 
-        private Vector2 SetGridSize(GameObject gridContent, int rows, int cols)
+        private Vector2 SetGridSize(GameObject panel, GameObject gridContent, int rows, int cols)
         {
             // Make sure grid size have sane value
             cols = Math.Min(cols, 10);
@@ -264,7 +314,7 @@ namespace QuestAppLauncher
             // Adjust grid container rect transform
             var size = new Vector2(width, height);
 
-            var gridTransform = this.panelContainer.GetComponent<RectTransform>();
+            var gridTransform = panel.GetComponent<RectTransform>();
             gridTransform.sizeDelta = size;
 
             // Adjust grid container Y position to maintain constant height.
@@ -277,7 +327,7 @@ namespace QuestAppLauncher
             return size;
         }
 
-        private void ProcessTabContainer(Config config, List<string> tabs, GameObject tabContainer,
+        private void ProcessTabContainer(Config config, List<string> tabs, GameObject panel, GameObject scroll, GameObject tabContainer,
             GameObject tabContainerContent, bool setFirstTabActive, Dictionary<string, GameObject> gridContents)
         {
             // Create scroll views and tabs
@@ -286,7 +336,7 @@ namespace QuestAppLauncher
                 Debug.LogFormat("Populating tab '{0}'", tabName);
 
                 // Create scroll view
-                var scrollView = (GameObject)Instantiate(this.prefabScrollView, this.scrollContainer.transform);
+                var scrollView = (GameObject)Instantiate(this.prefabScrollView, scroll.transform);
                 var scrollRectOverride = scrollView.GetComponent<ScrollRectOverride>();
                 scrollRectOverride.trackingSpace = this.trackingSpace.transform;
 
@@ -299,7 +349,7 @@ namespace QuestAppLauncher
 
                 var toggle = tab.GetComponent<Toggle>();
                 toggle.isOn = setFirstTabActive;
-                toggle.group = this.panelContainer.GetComponent<ToggleGroup>();
+                toggle.group = panel.GetComponent<ToggleGroup>();
                 toggle.onValueChanged.AddListener(scrollView.SetActive);
 
                 setFirstTabActive = false;
@@ -309,8 +359,14 @@ namespace QuestAppLauncher
             }
         }
 
-        private async Task AddCellToGridAsync(ProcessedApp app, Transform transform)
+        private async Task AddCellToGridAsync(ProcessedApp app, Transform transform, bool isRenameMode = false)
         {
+            if (app.Index == -1 && string.IsNullOrEmpty(app.IconPath))
+            {
+                // If we have neither app index or icon path, skip this
+                return;
+            }
+
             // Get app icon in background
             var bytesIcon = await Task.Run(() =>
             {
@@ -330,9 +386,12 @@ namespace QuestAppLauncher
             var newObj = (GameObject)Instantiate(this.prefabCell, transform);
 
             // Set app entry info
-            var appEntry = newObj.GetComponent("AppEntry") as AppEntry;
+            var appEntry = newObj.GetComponent<AppEntry>();
             appEntry.packageId = app.PackageName;
             appEntry.appName = app.AppName;
+            appEntry.isRenameMode = isRenameMode;
+            appEntry.installedApkIndex = app.Index;
+            appEntry.externalIconPath = app.IconPath;
 
             // Set the icon image
             if (null != bytesIcon)
@@ -351,8 +410,7 @@ namespace QuestAppLauncher
             }
 
             // Set app name in text
-            var text = newObj.transform.Find("AppName").GetComponentInChildren<TextMeshProUGUI>();
-            text.text = app.AppName;
+            appEntry.text.text = app.AppName;
         }
     }
     #endregion

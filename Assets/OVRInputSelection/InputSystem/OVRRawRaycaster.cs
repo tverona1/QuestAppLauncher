@@ -40,6 +40,8 @@ namespace ControllerSelection {
         public OVRInput.Button primaryButton = OVRInput.Button.PrimaryIndexTrigger;
         [Tooltip("Secondary selection button")]
         public OVRInput.Button secondaryButton = OVRInput.Button.PrimaryTouchpad;
+        [Tooltip("Tertiary selection button")]
+        public OVRInput.Button tertiaryButton = OVRInput.Button.One;
         [Tooltip("Layers to exclude from raycast")]
         public LayerMask excludeLayers;
         [Tooltip("Maximum raycast distance")]
@@ -53,11 +55,13 @@ namespace ControllerSelection {
         [Header("Selection Callbacks")]
         public OVRRawRaycaster.SelectionCallback onPrimarySelect;
         public OVRRawRaycaster.SelectionCallback onSecondarySelect;
+        public OVRRawRaycaster.SelectionCallback onTertiarySelect;
 
         //protected Ray pointer;
         protected Transform lastHit = null;
         protected Transform triggerDown = null;
         protected Transform padDown = null;
+        protected Transform tertiaryDown = null;
 
         [HideInInspector]
         public OVRInput.Controller activeController = OVRInput.Controller.None;
@@ -112,6 +116,25 @@ namespace ControllerSelection {
                 // Handle selection callbacks. An object is selected if the button selecting it was
                 // pressed AND released while hovering over the object.
                 if (activeController != OVRInput.Controller.None) {
+                    if (OVRInput.GetDown(tertiaryButton, activeController))
+                    {
+                        tertiaryDown = lastHit;
+                    }
+                    else if (OVRInput.GetUp(tertiaryButton, activeController))
+                    {
+                        if (tertiaryDown != null && tertiaryDown == lastHit)
+                        {
+                            if (onTertiarySelect != null)
+                            {
+                                onTertiarySelect.Invoke(tertiaryDown);
+                            }
+                        }
+                    }
+                    if (!OVRInput.Get(tertiaryButton, activeController))
+                    {
+                        tertiaryDown = null;
+                    }
+
                     if (OVRInput.GetDown(secondaryButton, activeController)) {
                         padDown = lastHit;
                     }
