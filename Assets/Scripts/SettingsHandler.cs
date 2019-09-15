@@ -1,6 +1,7 @@
 ﻿using System;
 using System.Collections;
 using System.Collections.Generic;
+using System.IO;
 using UnityEngine;
 using UnityEngine.UI;
 using UnityEngine.SceneManagement;
@@ -21,7 +22,9 @@ namespace QuestAppLauncher
         public GameObject gridPopulation;
         public GameObject show2DToggle;
         public GameObject autoUpdateToggle;
+        public GameObject skyBoxButton;
         public DownloadStatusIndicator downloadStatusIndicator;
+        public SkyboxHandler skyboxHandler;
 
         public Toggle tabsAutoOff;
         public Toggle tabsAutoTop;
@@ -57,6 +60,9 @@ namespace QuestAppLauncher
             // Load config
             this.config = ConfigPersistence.LoadConfig();
 
+            // Skybox callback
+            this.skyboxHandler.OnSkyboxSelected = OnSkyboxSelected;
+
             // Set current cols & rows
             var colsSlider = this.gridCols.GetComponent<Slider>();
             colsSlider.value = this.config.gridSize.cols;
@@ -74,6 +80,9 @@ namespace QuestAppLauncher
 
             // Set 2D toggle
             this.show2DToggle.GetComponent<Toggle>().SetIsOnWithoutNotify(this.config.show2D);
+
+            // Set skybox button text
+            this.skyBoxButton.GetComponentInChildren<TextMeshProUGUI>().text = SkyboxHandler.GetSkyboxNameFromPath(this.config.background);
 
             // Set auto-update toggle
             this.autoUpdateToggle.GetComponent<Toggle>().SetIsOnWithoutNotify(this.config.autoUpdate);
@@ -142,6 +151,19 @@ namespace QuestAppLauncher
             }
         }
 
+        public void OnSkyboxSelected(string skyboxPath)
+        {
+            // Update text
+            this.skyBoxButton.GetComponentInChildren<TextMeshProUGUI>().text = SkyboxHandler.GetSkyboxNameFromPath(skyboxPath);
+
+            // Save config with new skybox selection
+            if (!this.config.background.Equals(skyboxPath, StringComparison.OrdinalIgnoreCase))
+            {
+                this.config.background = skyboxPath;
+                ConfigPersistence.SaveConfig(this.config);
+            }
+        }
+
         public void DeleteRenameFiles()
         {
             Debug.Log("Delete Rename files");
@@ -164,6 +186,11 @@ namespace QuestAppLauncher
             var rows = gridRows.GetComponent<Slider>().value;
             var rowsText = this.gridRowsText.GetComponent<TextMeshProUGUI>();
             rowsText.text = string.Format("{0} Rows", rows);
+        }
+
+        public void ShowSkyboxList()
+        {
+            this.skyboxHandler.ShowList();
         }
 
         private bool HasUsageStatsPermissions()

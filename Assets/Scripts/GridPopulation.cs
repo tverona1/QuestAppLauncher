@@ -34,6 +34,9 @@ namespace QuestAppLauncher
         // Scroll container game object
         public GameObject scrollContainer;
 
+        // SKybox handler
+        public SkyboxHandler skyboxHandler;
+
         // Tab containers
         public GameObject topTabContainer;
         public GameObject leftTabContainer;
@@ -100,6 +103,12 @@ namespace QuestAppLauncher
         {
             // Load configuration
             var config = ConfigPersistence.LoadConfig();
+
+            // Set skybox
+            if (!isRenameMode)
+            {
+                this.skyboxHandler.SetSkybox(config.background);
+            }
 
             // Process apps in background
             var apps = await Task.Run(() =>
@@ -377,7 +386,7 @@ namespace QuestAppLauncher
             var newObj = (GameObject)Instantiate(this.prefabCell, transform);
 
             // Set app entry info
-            var appEntry = newObj.GetComponent("AppEntry") as AppEntry;
+            var appEntry = newObj.GetComponent<AppEntry>();
             appEntry.packageId = app.PackageName;
             appEntry.appName = app.AppName;
             appEntry.isRenameMode = isRenameMode;
@@ -401,8 +410,7 @@ namespace QuestAppLauncher
             }
 
             // Set app name in text
-            var text = newObj.transform.Find("AppName").GetComponentInChildren<TextMeshProUGUI>();
-            text.text = app.AppName;
+            appEntry.text.text = app.AppName;
         }
     }
     #endregion

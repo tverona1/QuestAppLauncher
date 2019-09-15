@@ -28,6 +28,9 @@ namespace QuestAppLauncher
         public const string DownloadRepo_Type_GitHub = "github";
         public const string DownloadRepo_Default = @"tverona1/QuestAppLauncher_Assets/releases/latest";
 
+        // Background
+        public const string Background_Default = "default";
+
         /// <summary>
         /// Grid size
         /// </summary>
@@ -65,6 +68,9 @@ namespace QuestAppLauncher
 
         // Whether to auto-download updates
         public bool autoUpdate = false;
+
+        // Background image path
+        public string background = Background_Default;
 
         // Github download repos
         public List<DownloadRepo> downloadRepos = new List<DownloadRepo>();

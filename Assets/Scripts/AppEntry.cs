@@ -1,11 +1,17 @@
 ﻿using System.Collections;
 using System.Collections.Generic;
+using TMPro;
 using UnityEngine;
 
 public class AppEntry : MonoBehaviour
 {
+    // Sprite gameobject
     public GameObject sprite;
 
+    // TMP text
+    public TextMeshProUGUI text;
+
+    // App entry contents
     public string packageId;
     public string appName;
     public string externalIconPath;

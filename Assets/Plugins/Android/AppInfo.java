@@ -19,6 +19,8 @@ import java.io.ByteArrayOutputStream;
 import java.io.File;
 import java.io.FileInputStream;
 import java.io.FileOutputStream;
+import java.nio.ByteBuffer;
+import java.nio.ByteOrder;
 import java.util.Calendar;
 import java.util.Map;
 import java.util.zip.ZipEntry;
@@ -27,13 +29,21 @@ import java.util.zip.ZipOutputStream;
 import android.os.Bundle;
 import android.util.Log;
 import android.graphics.Bitmap;
+import android.graphics.BitmapFactory;
 import android.graphics.drawable.BitmapDrawable;
+import android.graphics.Color;
 import java.util.List;
 import java.util.LinkedList;
 
 class AppInfoInternal {
     public ApplicationInfo app;
     public long lastTimeUsed;
+}
+
+class DecodedBitmap {
+    int width;
+    int height;
+    byte[] rawImage;
 }
 
 public class AppInfo extends UnityPlayerActivity {
@@ -261,6 +271,56 @@ public class AppInfo extends UnityPlayerActivity {
                 tempZipFile.delete();
             }
         }
+    }
+
+    public static DecodedBitmap loadRawImage(String imagePath, int maxWidth, int maxHeight) {
+        Log.v(TAG, "Decoding image at " + imagePath);
+
+        try {
+            // Decode bitmap with inJustDecodeBounds=true to check dimensions
+            final BitmapFactory.Options options = new BitmapFactory.Options();
+            options.inJustDecodeBounds = true;
+            BitmapFactory.decodeFile(imagePath, options);
+
+            // Calculate inSampleSize
+            int height = options.outHeight;
+            int width = options.outWidth;
+            Log.v(TAG, "Image dimensions: " + height + "x" + width);
+
+            // Calculate the largest inSampleSize value that is a power of 2 and keeps both
+            // height and width smaller than the requested height and width.
+            options.inSampleSize = 1;
+            while ((height / options.inSampleSize) >= maxHeight
+                    || (width / options.inSampleSize) >= maxWidth) {
+                options.inSampleSize *= 2;
+            }
+            Log.v(TAG, "Image sample size: " + options.inSampleSize);
+
+            // Decode bitmap with inSampleSize set
+            options.inJustDecodeBounds = false;
+            options.inPremultiplied = false;
+            options.inPreferredConfig = Bitmap.Config.ARGB_8888;
+            options.inPreferQualityOverSpeed = true;
+            Bitmap bmp = BitmapFactory.decodeFile(imagePath, options);
+            if (null == bmp) {
+                Log.v(TAG, "Failed to decode image at " + imagePath);
+                return null;
+            }
+
+            DecodedBitmap decodedBmp = new DecodedBitmap();
+            decodedBmp.width = bmp.getWidth();
+            decodedBmp.height = bmp.getHeight();
+            ByteBuffer byteBuffer = ByteBuffer.allocate(bmp.getByteCount());
+            bmp.copyPixelsToBuffer(byteBuffer);
+            decodedBmp.rawImage = byteBuffer.array();
+
+            Log.v(TAG, "Done decoding image at " + imagePath);
+            return decodedBmp;
+        } catch (Exception e) {
+            e.printStackTrace();
+        }
+
+        return null;
     }
 
     private static void createDirIfNotExist(File path) {
