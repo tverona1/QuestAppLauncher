@@ -14,14 +14,7 @@ An app launcher for Quest implemented in Unity.
 * Support for custom 360/cubemap 3D backgrounds
 * Supports both Oculus Quest and Go devices
 
-## Getting Started
-
-### Downloading app icons and names / enabling auto-updating
-By default, the launcher uses the built-in app name and icon (from the installed apps). Oculus Store apps, however, sometimes do not contain correct names or icons. To address this, download these assets by going to Settings and choosing "Update Now". To enable auto-updates, enable "Auto-Update". This will automatically download new app names and icons as they become available.
-
-Note: Default repository for app icons and names is [https://github.com/tverona1/QuestAppLauncher_assets]. This can be configured in config.json (see below).
-
-### Settings
+## Settings
 There are various options available in Settings. These are:
 * Automatic Tabs: By default, the launcher will display automatic tabs (Quest, Go/GrearVr and 2D). This setting allows you to specify the position of these tabs (left, top, right or off).
 * Custom Tabs: Custom tabs allow for artibtary categorization (like genre etc). See below for how to configure these. This setting, like the above, allows you to specify the position of these tabs (left, top, right or off).
@@ -34,6 +27,13 @@ There are various options available in Settings. These are:
 * Reset Renamed Apps: This setting changes app names back to their default. See below regarding renaming apps.
 
 ## Other Features
+### Auto-update / Downloading app icons and names
+By default, the launcher uses the built-in app name and icon (from the installed apps). Oculus Store apps, however, sometimes do not contain correct names or icons. To address this, download these assets by going to Settings and choosing "Update Now". If "Auto-Update" is enabled, this will automatically download new app names and icons as they become available.
+
+Note: Auto-update is enabled by default.
+
+Note: Default repository for app icons and names is [https://github.com/tverona1/QuestAppLauncher_assets]. This can be configured in config.json (see below).
+
 ### Custom 3D Backgrounds
 Customer 3D background images are supported. Both 360 degree (equirectangular) and 6-side (cubemap) images are supported. This is automatically detected based on aspect ratio (with cubemap having 4:3 aspect ratio).
 
