@@ -11,10 +11,10 @@ namespace QuestAppLauncher
 {
     public class SkyboxHandler : MonoBehaviour
     {
-        // Max width and height of skybox image.
+        // Max pixles of skybox image for both equirectangular and cubemap images.
+        // We calculate this to be: 2048px x 2048px x 6 faces (for cubemap).
         // Anything larger we'll scale down. We restrict it primarily due to memory constraints.
-        const int MaxWidth = 4096;
-        const int MaxHeight = 4096;
+        const int MaxPixels = 2048 * 2048 * 6;
 
         // Skybox selected callback
         public Action<string> OnSkyboxSelected;
@@ -155,7 +155,7 @@ namespace QuestAppLauncher
                     using (AndroidJavaObject currentActivity = unity.GetStatic<AndroidJavaObject>("currentActivity"))
                     {
                         // Call Android plugin to load the raw image.
-                        var jo = currentActivity.CallStatic<AndroidJavaObject>("loadRawImage", MakeAbsoluteSkymapPath(skyboxPath), MaxHeight, MaxWidth);
+                        var jo = currentActivity.CallStatic<AndroidJavaObject>("loadRawImage", MakeAbsoluteSkymapPath(skyboxPath), MaxPixels);
                         if (null == jo)
                         {
                             return null;
@@ -223,13 +223,23 @@ namespace QuestAppLauncher
                 Material material;
                 if (4 * texture.height == 3 * texture.width)
                 {
-                    // Texture is a cube map (4:3 aspect ratio).
+                    // Texture is a horizontal cross cube map (4:3 aspect ratio).
                     // Load cubemap shader. Also rotate x-axis by 180 degrees to compensate for platform-specific rendering differences
                     // (see https://docs.unity3d.com/Manual/SL-PlatformDifferences.html).
-                    Debug.LogFormat("Setting cubemap skybox");
+                    Debug.LogFormat("Setting horizontal-cross cubemap skybox");
                     material = new Material(Shader.Find("skybox/cube"));
                     material.SetFloat("_RotationX", 180);
-                    material.SetTexture("_Tex", CubemapFromTexture2D(texture));
+                    material.SetTexture("_Tex", CubemapFromHorizCrossTexture2D(texture));
+                }
+                else if (6 * texture.height == texture.width)
+                {
+                    // Texture is a horizontal cube map (6:1 aspect ratio).
+                    // Load cubemap shader. Also rotate x-axis by 180 degrees to compensate for platform-specific rendering differences
+                    // (see https://docs.unity3d.com/Manual/SL-PlatformDifferences.html).
+                    Debug.LogFormat("Setting horizontal cubemap skybox");
+                    material = new Material(Shader.Find("skybox/cube"));
+                    material.SetFloat("_RotationX", 180);
+                    material.SetTexture("_Tex", CubemapFromHorizTexture2D(texture));
                 }
                 else
                 {
@@ -251,11 +261,15 @@ namespace QuestAppLauncher
         }
 
         /// <summary>
-        /// Gets cubemap from a 2D texture (which represents 6-sided cube)
+        /// Gets cubemap from a 2D texture that represents 6-sided cube as a horizontal cross:
+        /// [    ]  [ +y ]  [    ]
+        /// [ -x ]  [ +z ]  [ +x ]
+        /// [    ]  [ -y ]  [    ]
+        /// Note: This is less memory efficient than horizontal representation below.
         /// </summary>
         /// <param name="texture"></param>
         /// <returns></returns>
-        private static Cubemap CubemapFromTexture2D(Texture2D texture)
+        private static Cubemap CubemapFromHorizCrossTexture2D(Texture2D texture)
         {
             int cubedim = texture.width / 4;
             Cubemap cube = new Cubemap(cubedim, TextureFormat.ARGB32, false);
@@ -265,6 +279,27 @@ namespace QuestAppLauncher
             cube.SetPixels(texture.GetPixels(3 * cubedim, cubedim, cubedim, cubedim), CubemapFace.NegativeZ);
             cube.SetPixels(texture.GetPixels(cubedim, 0, cubedim, cubedim), CubemapFace.PositiveY);
             cube.SetPixels(texture.GetPixels(cubedim, 2 * cubedim, cubedim, cubedim), CubemapFace.NegativeY);
+            cube.Apply();
+            return cube;
+        }
+
+        /// <summary>
+        /// Gets cubemap from a 2D texture that represents 6-sided cube as a horizontal layout:
+        /// [ +x ]  [ -x ]  [ +y ]  [ -y ]  [ +z ]  [ -z ]
+        /// Note: This is the recommended representation of cube map as it is more efficient in terms of memory.
+        /// </summary>
+        /// <param name="texture"></param>
+        /// <returns></returns>
+        private static Cubemap CubemapFromHorizTexture2D(Texture2D texture)
+        {
+            int cubedim = texture.width / 4;
+            Cubemap cube = new Cubemap(cubedim, TextureFormat.ARGB32, false);
+            cube.SetPixels(texture.GetPixels(0, 0, cubedim, cubedim), CubemapFace.PositiveX);
+            cube.SetPixels(texture.GetPixels(cubedim, 0, cubedim, cubedim), CubemapFace.NegativeX);
+            cube.SetPixels(texture.GetPixels(2 * cubedim, 0, cubedim, cubedim), CubemapFace.PositiveY);
+            cube.SetPixels(texture.GetPixels(3 * cubedim, 0, cubedim, cubedim), CubemapFace.NegativeY);
+            cube.SetPixels(texture.GetPixels(4 * cubedim, 0, cubedim, cubedim), CubemapFace.PositiveZ);
+            cube.SetPixels(texture.GetPixels(5 * cubedim, 0, cubedim, cubedim), CubemapFace.NegativeZ);
             cube.Apply();
             return cube;
         }
