@@ -273,7 +273,7 @@ public class AppInfo extends UnityPlayerActivity {
         }
     }
 
-    public static DecodedBitmap loadRawImage(String imagePath, int maxWidth, int maxHeight) {
+    public static DecodedBitmap loadRawImage(String imagePath, int maxPixels) {
         Log.v(TAG, "Decoding image at " + imagePath);
 
         try {
@@ -290,8 +290,7 @@ public class AppInfo extends UnityPlayerActivity {
             // Calculate the largest inSampleSize value that is a power of 2 and keeps both
             // height and width smaller than the requested height and width.
             options.inSampleSize = 1;
-            while ((height / options.inSampleSize) >= maxHeight
-                    || (width / options.inSampleSize) >= maxWidth) {
+            while (height / options.inSampleSize * width / options.inSampleSize > maxPixels) {
                 options.inSampleSize *= 2;
             }
             Log.v(TAG, "Image sample size: " + options.inSampleSize);

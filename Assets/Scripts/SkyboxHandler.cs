@@ -11,10 +11,9 @@ namespace QuestAppLauncher
 {
     public class SkyboxHandler : MonoBehaviour
     {
-        // Max width and height of skybox image.
+        // Max pixles of skybox image for both equirectangular and cubemap images.
         // Anything larger we'll scale down. We restrict it primarily due to memory constraints.
-        const int MaxWidth = 4096;
-        const int MaxHeight = 4096;
+        const int MaxPixels = 4096 * 4096;
 
         // Skybox selected callback
         public Action<string> OnSkyboxSelected;
@@ -142,66 +141,26 @@ namespace QuestAppLauncher
                 return;
             }
 
-            // Read the image
-            int imageHeight = 0;
-            int imageWidth = 0;
-            var image = await Task.Run(() =>
+            // Destroy existing skybox
+            if (null != RenderSettings.skybox && RenderSettings.skybox != this.defaultSkybox)
             {
-                AndroidJNI.AttachCurrentThread();
-
-                try
+                // Destroy texture
+                var oldTexture = RenderSettings.skybox.GetTexture("_Tex");
+                if (null != oldTexture)
                 {
-                    using (AndroidJavaClass unity = new AndroidJavaClass("com.unity3d.player.UnityPlayer"))
-                    using (AndroidJavaObject currentActivity = unity.GetStatic<AndroidJavaObject>("currentActivity"))
-                    {
-                        // Call Android plugin to load the raw image.
-                        var jo = currentActivity.CallStatic<AndroidJavaObject>("loadRawImage", MakeAbsoluteSkymapPath(skyboxPath), MaxHeight, MaxWidth);
-                        if (null == jo)
-                        {
-                            return null;
-                        }
-
-                        // Get the width, height and raw image data.
-                        imageWidth = jo.Get<int>("width");
-                        imageHeight = jo.Get<int>("height");
-                        var rawImage = (byte[])(Array)jo.Get<sbyte[]>("rawImage");
-
-                        // The image is in ARGB_8888 format (Alpha, Red, Green, Blue - each 1 byte). In addition, (0, 0) coordinates are bottom-left.
-                        // Unity expects RGBA (with Alpha as the last byte) and origin at top-left. So we need to compensate for both.
-
-                        // Shift alpha
-                        for (var i = 0; i < rawImage.Length / 4; i++)
-                        {
-                            var tmp = rawImage[i * 4 + 3];
-                            rawImage[i * 4 + 3] = rawImage[i * 4 + 2];
-                            rawImage[i * 4 + 2] = rawImage[i * 4 + 1];
-                            rawImage[i * 4 + 1] = rawImage[i * 4];
-                            rawImage[i * 4] = tmp;
-                        }
-
-                        // Swap rows
-                        var row = new byte[imageWidth * 4];
-                        for (var i = 0; i < imageHeight / 2; i++)
-                        {
-                            Buffer.BlockCopy(rawImage, i * imageWidth * 4, row, 0, imageWidth * 4);
-                            Buffer.BlockCopy(rawImage, (imageHeight - i - 1) * imageWidth * 4, rawImage, i * imageWidth * 4, imageWidth * 4);
-                            Buffer.BlockCopy(row, 0, rawImage, (imageHeight - i - 1) * imageWidth * 4, imageWidth * 4);
-                        }
-
-                        return rawImage;
-                    }
+                    DestroyImmediate(oldTexture);
                 }
-                catch (Exception e)
-                {
-                    // Fall back to using the apk icon
-                    Debug.LogFormat("Error decoding image [{0}]: {1}", skyboxPath, e.Message);
-                    return null;
-                }
-                finally
-                {
-                    AndroidJNI.DetachCurrentThread();
-                }
-            });
+
+                // Destroy material
+                DestroyImmediate(RenderSettings.skybox);
+                RenderSettings.skybox = null;
+            }
+
+            // Read the image
+            var result = await AppProcessor.LoadRawImageAsync(MakeAbsoluteSkymapPath(skyboxPath), MaxPixels, true);
+            var image = result.Item1;
+            var imageWidth = result.Item2;
+            var imageHeight = result.Item3;
 
             if (null == image)
             {
@@ -210,26 +169,39 @@ namespace QuestAppLauncher
                 return;
             }
 
+            Texture2D texture = null;
+            Material material = null;
+            bool destroyTexture = false;
+
             try
             {
                 // Load the image into a 2D texture. We decode in background thread (above) in Java and load the raw image here
                 // because Texture2D.LoadImage on the main thread can cause significant freezes since it is not async.
-                var texture = new Texture2D(imageWidth, imageHeight, TextureFormat.ARGB32, false);
+                texture = new Texture2D(imageWidth, imageHeight, TextureFormat.ARGB32, false);
                 texture.filterMode = FilterMode.Trilinear;
                 texture.anisoLevel = 16;
                 texture.LoadRawTextureData(image);
                 texture.Apply();
 
-                Material material;
                 if (4 * texture.height == 3 * texture.width)
                 {
-                    // Texture is a cube map (4:3 aspect ratio).
+                    // Texture is a horizontal cross cube map (4:3 aspect ratio).
                     // Load cubemap shader. Also rotate x-axis by 180 degrees to compensate for platform-specific rendering differences
                     // (see https://docs.unity3d.com/Manual/SL-PlatformDifferences.html).
-                    Debug.LogFormat("Setting cubemap skybox");
+                    Debug.LogFormat("Setting horizontal-cross cubemap skybox");
+                    destroyTexture = true;
                     material = new Material(Shader.Find("skybox/cube"));
-                    material.SetFloat("_RotationX", 180);
-                    material.SetTexture("_Tex", CubemapFromTexture2D(texture));
+                    material.SetTexture("_Tex", CubemapFromHorizCrossTexture2D(texture));
+                }
+                else if (6 * texture.height == texture.width)
+                {
+                    // Texture is a horizontal cube map (6:1 aspect ratio).
+                    // Load cubemap shader. Also rotate x-axis by 180 degrees to compensate for platform-specific rendering differences
+                    // (see https://docs.unity3d.com/Manual/SL-PlatformDifferences.html).
+                    Debug.LogFormat("Setting horizontal cubemap skybox");
+                    destroyTexture = true;
+                    material = new Material(Shader.Find("skybox/cube"));
+                    material.SetTexture("_Tex", CubemapFromHorizTexture2D(texture));
                 }
                 else
                 {
@@ -248,14 +220,25 @@ namespace QuestAppLauncher
                 Debug.LogFormat("Exception: {0}", e.Message);
                 SetDefaultSkybox();
             }
+            finally
+            {
+                if (destroyTexture && null != texture)
+                {
+                    DestroyImmediate(texture);
+                }
+            }
         }
 
         /// <summary>
-        /// Gets cubemap from a 2D texture (which represents 6-sided cube)
+        /// Gets cubemap from a 2D texture that represents 6-sided cube as a horizontal cross:
+        /// [    ]  [ +y ]  [    ]
+        /// [ -x ]  [ +z ]  [ +x ]
+        /// [    ]  [ -y ]  [    ]
+        /// Note: This is less memory efficient than horizontal representation below.
         /// </summary>
         /// <param name="texture"></param>
         /// <returns></returns>
-        private static Cubemap CubemapFromTexture2D(Texture2D texture)
+        private static Cubemap CubemapFromHorizCrossTexture2D(Texture2D texture)
         {
             int cubedim = texture.width / 4;
             Cubemap cube = new Cubemap(cubedim, TextureFormat.ARGB32, false);
@@ -265,6 +248,27 @@ namespace QuestAppLauncher
             cube.SetPixels(texture.GetPixels(3 * cubedim, cubedim, cubedim, cubedim), CubemapFace.NegativeZ);
             cube.SetPixels(texture.GetPixels(cubedim, 0, cubedim, cubedim), CubemapFace.PositiveY);
             cube.SetPixels(texture.GetPixels(cubedim, 2 * cubedim, cubedim, cubedim), CubemapFace.NegativeY);
+            cube.Apply();
+            return cube;
+        }
+
+        /// <summary>
+        /// Gets cubemap from a 2D texture that represents 6-sided cube as a horizontal layout:
+        /// [ +x ]  [ -x ]  [ +y ]  [ -y ]  [ +z ]  [ -z ]
+        /// Note: This is the recommended representation of cube map as it is more efficient in terms of memory.
+        /// </summary>
+        /// <param name="texture"></param>
+        /// <returns></returns>
+        private static Cubemap CubemapFromHorizTexture2D(Texture2D texture)
+        {
+            int cubedim = texture.height;
+            Cubemap cube = new Cubemap(cubedim, TextureFormat.ARGB32, false);
+            cube.SetPixels(texture.GetPixels(0, 0, cubedim, cubedim), CubemapFace.PositiveX);
+            cube.SetPixels(texture.GetPixels(cubedim, 0, cubedim, cubedim), CubemapFace.NegativeX);
+            cube.SetPixels(texture.GetPixels(2 * cubedim, 0, cubedim, cubedim), CubemapFace.PositiveY);
+            cube.SetPixels(texture.GetPixels(3 * cubedim, 0, cubedim, cubedim), CubemapFace.NegativeY);
+            cube.SetPixels(texture.GetPixels(4 * cubedim, 0, cubedim, cubedim), CubemapFace.PositiveZ);
+            cube.SetPixels(texture.GetPixels(5 * cubedim, 0, cubedim, cubedim), CubemapFace.NegativeZ);
             cube.Apply();
             return cube;
         }
