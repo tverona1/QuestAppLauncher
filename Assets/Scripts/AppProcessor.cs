@@ -482,17 +482,114 @@ namespace QuestAppLauncher
             }
         }
 
-        public static byte[] GetAppIcon(string iconPath, int appIndex)
+        /// <summary>
+        /// Loads an image from specified path. Scaled down if image is larger than max pixels.
+        /// </summary>
+        /// <param name="path">Image path</param>
+        /// <param name="maxPixels">Max pixels</param>
+        /// <returns>Image and dimensions</returns>
+        public static async Task<(byte[], int, int)> LoadRawImageAsync(string path, int maxPixels)
         {
-            byte[] bytesIcon = null;
-            bool useApkIcon = true;
-            if (null != iconPath)
+            int imageHeight = 0;
+            int imageWidth = 0;
+            byte[] image = null;
+
+            await Task.Run(() =>
             {
-                // Use overridden icon
+                AndroidJNI.AttachCurrentThread();
+
                 try
                 {
-                    bytesIcon = File.ReadAllBytes(iconPath);
-                    useApkIcon = false;
+                    LoadRawImage(path, maxPixels, out image, out imageWidth, out imageHeight);
+                }
+                finally
+                {
+                    AndroidJNI.DetachCurrentThread();
+                }
+            });
+
+            return (image, imageWidth, imageHeight);
+        }
+
+        /// <summary>
+        /// Loads an image from specified path. Scaled down if image is larger than max pixels.
+        /// </summary>
+        /// <param name="path">Image path</param>
+        /// <param name="maxPixels">Max pixels</param>
+        /// <param name="image">Output raw image byte array</param>
+        /// <param name="imageWidth">Output width</param>
+        /// <param name="imageHeight">Output height</param>
+        public static void LoadRawImage(string path, int maxPixels, out byte[] image, out int imageWidth, out int imageHeight)
+        {
+            image = null;
+            imageWidth = 0;
+            imageHeight = 0;
+
+            try
+            {
+                using (AndroidJavaClass unity = new AndroidJavaClass("com.unity3d.player.UnityPlayer"))
+                using (AndroidJavaObject currentActivity = unity.GetStatic<AndroidJavaObject>("currentActivity"))
+                {
+                    // Call Android plugin to load the raw image.
+                    var jo = currentActivity.CallStatic<AndroidJavaObject>("loadRawImage", path, maxPixels);
+                    if (null == jo)
+                    {
+                        return;
+                    }
+
+                    // Get the width, height and raw image data.
+                    imageWidth = jo.Get<int>("width");
+                    imageHeight = jo.Get<int>("height");
+                    var rawImage = (byte[])(Array)jo.Get<sbyte[]>("rawImage");
+
+                    // The image is in ARGB_8888 format (Alpha, Red, Green, Blue - each 1 byte). In addition, (0, 0) coordinates are bottom-left.
+                    // Unity expects RGBA (with Alpha as the last byte) and origin at top-left. So we need to compensate for both.
+
+                    // Shift alpha
+                    for (var i = 0; i < rawImage.Length / 4; i++)
+                    {
+                        var tmp = rawImage[i * 4 + 3];
+                        rawImage[i * 4 + 3] = rawImage[i * 4 + 2];
+                        rawImage[i * 4 + 2] = rawImage[i * 4 + 1];
+                        rawImage[i * 4 + 1] = rawImage[i * 4];
+                        rawImage[i * 4] = tmp;
+                    }
+
+                    // Swap rows
+                    var row = new byte[imageWidth * 4];
+                    for (var i = 0; i < imageHeight / 2; i++)
+                    {
+                        Buffer.BlockCopy(rawImage, i * imageWidth * 4, row, 0, imageWidth * 4);
+                        Buffer.BlockCopy(rawImage, (imageHeight - i - 1) * imageWidth * 4, rawImage, i * imageWidth * 4, imageWidth * 4);
+                        Buffer.BlockCopy(row, 0, rawImage, (imageHeight - i - 1) * imageWidth * 4, imageWidth * 4);
+                    }
+
+                    image = rawImage;
+                }
+            }
+            catch (Exception e)
+            {
+                // Fall back to using the apk icon
+                Debug.LogFormat("Error decoding image [{0}]: {1}", path, e.Message);
+            }
+        }
+
+        /// <summary>
+        /// Loads an app icon asynchronously, either from specified external icon path or, if path is not provided or fails to load,
+        /// falls back to loading the icon from the apk itself.
+        /// </summary>
+        /// <param name="iconPath">External icon path</param>
+        /// <param name="appIndex">App index (used when falling back to loading icon from APK)</param>
+        /// <param name="maxPixels">Max pixels - image will be scaled down if larger than this size</param>
+        /// <returns>Icon bytes and dimensions</returns>
+        public static async Task<(byte[], int, int)> GetAppIconAsync(string iconPath, int appIndex, int maxPixels)
+        {
+            if (null != iconPath)
+            {
+                // Load icon from file path
+                try
+                {
+                    return await LoadRawImageAsync(iconPath, maxPixels);
                 }
                 catch (Exception e)
                 {
@@ -501,17 +598,27 @@ namespace QuestAppLauncher
                 }
             }
 
-            if (useApkIcon)
+            byte[] bytesIcon = null;
+            await Task.Run(() =>
             {
-                // Use built-in icon from the apk
-                using (AndroidJavaClass unity = new AndroidJavaClass("com.unity3d.player.UnityPlayer"))
-                using (AndroidJavaObject currentActivity = unity.GetStatic<AndroidJavaObject>("currentActivity"))
-                {
-                    bytesIcon = (byte[])(Array)currentActivity.Call<sbyte[]>("getIcon", appIndex);
-                }
-            }
+                AndroidJNI.AttachCurrentThread();
 
-            return bytesIcon;
+                try
+                {
+                    // Use built-in icon from the apk
+                    using (AndroidJavaClass unity = new AndroidJavaClass("com.unity3d.player.UnityPlayer"))
+                    using (AndroidJavaObject currentActivity = unity.GetStatic<AndroidJavaObject>("currentActivity"))
+                    {
+                        bytesIcon = (byte[])(Array)currentActivity.Call<sbyte[]>("getIcon", appIndex);
+                    }
+                }
+                finally
+                {
+                    AndroidJNI.DetachCurrentThread();
+                }
+            });
+
+            return (bytesIcon, 0, 0);
         }
 
         /// <summary>

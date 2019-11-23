@@ -28,6 +28,11 @@ namespace QuestAppLauncher
             }
         }
 
+        // Max icons to initially populate. If we have more than this number,
+        // then we fall back into dynamically loading icons as we scroll to conserve memory.
+        const int MaxIconsOnInitialPopulation = 150;
+
+
         // Grid container game object
         public GameObject panelContainer;
 
@@ -211,29 +216,31 @@ namespace QuestAppLauncher
                 ResizeTabContent(this.rightTabContainer.transform, size, rightTabs.Count, false);
             }
 
+            bool loadIcons = apps.Count <= MaxIconsOnInitialPopulation;
+
             // Populate grid with app information (name & icon)
             // Sort by custom comparer
             foreach (var app in apps.OrderBy(key => key.Value, new AppComparer()))
             {
                 // Add to all tab
-                await AddCellToGridAsync(app.Value, gridContents[AppProcessor.Tab_All].transform);
+                await AddCellToGridAsync(app.Value, gridContents[AppProcessor.Tab_All].transform, loadIcons);
 
                 // Add to auto (built-in) tabs
                 if (gridContents.ContainsKey(app.Value.AutoTabName))
                 {
-                    await AddCellToGridAsync(app.Value, gridContents[app.Value.AutoTabName].transform);
+                    await AddCellToGridAsync(app.Value, gridContents[app.Value.AutoTabName].transform, loadIcons);
                 }
 
                 // Add to tab1
                 if (null != app.Value.Tab1Name && gridContents.ContainsKey(app.Value.Tab1Name))
                 {
-                    await AddCellToGridAsync(app.Value, gridContents[app.Value.Tab1Name].transform);
+                    await AddCellToGridAsync(app.Value, gridContents[app.Value.Tab1Name].transform, loadIcons);
                 }
 
                 // Add to tab2
                 if (null != app.Value.Tab2Name && gridContents.ContainsKey(app.Value.Tab2Name))
                 {
-                    await AddCellToGridAsync(app.Value, gridContents[app.Value.Tab2Name].transform);
+                    await AddCellToGridAsync(app.Value, gridContents[app.Value.Tab2Name].transform, loadIcons);
                 }
             }
         }
@@ -252,11 +259,13 @@ namespace QuestAppLauncher
             // Set panel size
             SetGridSize(this.renamePanelContainer, gridContent, config.gridSize.rows, config.gridSize.cols);
 
+            bool loadIcons = apps.Count <= MaxIconsOnInitialPopulation;
+
             // Populate grid with app information (name & icon)
             // Sort alphabetically
             foreach (var app in apps.OrderBy(key => key.Value.AppName, StringComparer.InvariantCultureIgnoreCase))
             {
-                await AddCellToGridAsync(app.Value, gridContent.transform, true);
+                await AddCellToGridAsync(app.Value, gridContent.transform, loadIcons, true);
             }
         }
 
@@ -359,7 +368,7 @@ namespace QuestAppLauncher
             }
         }
 
-        private async Task AddCellToGridAsync(ProcessedApp app, Transform transform, bool isRenameMode = false)
+        private async Task AddCellToGridAsync(ProcessedApp app, Transform transform, bool loadIcon, bool isRenameMode = false)
         {
             if (app.Index == -1 && string.IsNullOrEmpty(app.IconPath))
             {
@@ -367,46 +376,25 @@ namespace QuestAppLauncher
                 return;
             }
 
-            // Get app icon in background
-            var bytesIcon = await Task.Run(() =>
-            {
-                AndroidJNI.AttachCurrentThread();
-
-                try
-                {
-                    return AppProcessor.GetAppIcon(app.IconPath, app.Index);
-                }
-                finally
-                {
-                    AndroidJNI.DetachCurrentThread();
-                }
-            });
-
             // Create new instances of our app info prefabCell
             var newObj = (GameObject)Instantiate(this.prefabCell, transform);
 
             // Set app entry info
             var appEntry = newObj.GetComponent<AppEntry>();
+            appEntry.scrollViewTransform = transform.parent.parent.gameObject.GetComponent<RectTransform>();
             appEntry.packageId = app.PackageName;
             appEntry.appName = app.AppName;
             appEntry.isRenameMode = isRenameMode;
             appEntry.installedApkIndex = app.Index;
             appEntry.externalIconPath = app.IconPath;
 
-            // Set the icon image
-            if (null != bytesIcon)
-            {
-                var texture = new Texture2D(2, 2, TextureFormat.RGBA32, false);
-                texture.filterMode = FilterMode.Trilinear;
-                texture.anisoLevel = 16;
-                texture.LoadImage(bytesIcon);
-                var rect = new Rect(0, 0, texture.width, texture.height);
-                var image = appEntry.sprite.GetComponent<Image>();
-                image.sprite = Sprite.Create(texture, rect, new Vector2(0.5f, 0.5f));
+            // Dynamically load icon if we're not loading the icon now
+            appEntry.dynamicallyLoadIcon = !loadIcon;
 
-                // Preserve icon's aspect ratio
-                var aspectRatioFitter = appEntry.sprite.GetComponent<AspectRatioFitter>();
-                aspectRatioFitter.aspectRatio = (float)texture.width / (float)texture.height;
+            // Set the icon image
+            if (loadIcon)
+            {
+                await appEntry.LoadIcon();
             }
 
             // Set app name in text
