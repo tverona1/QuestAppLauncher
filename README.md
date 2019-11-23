@@ -35,13 +35,25 @@ Note: Auto-update is enabled by default.
 Note: Default repository for app icons and names is [https://github.com/tverona1/QuestAppLauncher_assets]. This can be configured in config.json (see below).
 
 ### Custom 3D Backgrounds
-Custom 3D background images are supported. Both 360 degree (equirectangular) and 6-side (cubemap) images are supported. This is automatically detected based on aspect ratio (with cubemap having 4:3 aspect ratio).
+Custom 3D background images are supported. Both equirectangular (360 degree) and cubemap (6-side) images are supported. This is automatically detected based on aspect ratio (with cubemap having a 6:1 aspect ratio).
 
 To set up custom 3D backgrounds:
 1. Copy your background images (either jpg or png) to the following location on your Quest: **Android/data/aaa.QuestAppLauncher.App/files/backgrounds**  
 2. In "Settings", select the custom background.
 
-Note: Whether an image is 360 degree or cubemap images is automatically detected based on aspect ratio (with cubemap having 4:3 aspect ratio). Here's an example of a cubemap image: https://en.wikipedia.org/wiki/Skybox_(video_games)#/media/File:Skybox_example.png
+#### Equirectangular (360 degree) images
+For equirectangular (360 degree) images, here's a good source for free images: http://photopin.com/free-photos/equirectangular
+
+#### Cubemap (6-sided) images
+For cubemap (6-sides) images, it must be a single image that represents the 6-sided cube with the following horizontal layout:  
+[ +x ]  [ -x ]  [ +y ]  [ -y ]  [ +z ]  [ -z ]
+
+Here's a good source for free cubemap images: http://humus.name/index.php?page=Textures
+
+To set up the cubemap image, download an image (zip) file from the above site and extract the 6 individual images. Then use ImageMagick (https://imagemagick.org) to stitch together the six images into a single image with the following command: 
+```
+magick montage posx.jpg negx.jpg posy.jpg negy.jpg posz.jpg negz.jpg -tile 6x1 -geometry "1x1+0+0<" -background none out.jpg
+```
 
 ### Hiding Apps
 If there is an app that you would like to hide, highlight the app and press either the B or Y button on your controller. You can reset any hidden apps in Settings.
