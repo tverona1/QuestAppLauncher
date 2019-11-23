@@ -157,7 +157,7 @@ namespace QuestAppLauncher
             }
 
             // Read the image
-            var result = await AppProcessor.LoadRawImageAsync(MakeAbsoluteSkymapPath(skyboxPath), MaxPixels);
+            var result = await AppProcessor.LoadRawImageAsync(MakeAbsoluteSkymapPath(skyboxPath), MaxPixels, true);
             var image = result.Item1;
             var imageWidth = result.Item2;
             var imageHeight = result.Item3;
@@ -191,7 +191,6 @@ namespace QuestAppLauncher
                     Debug.LogFormat("Setting horizontal-cross cubemap skybox");
                     destroyTexture = true;
                     material = new Material(Shader.Find("skybox/cube"));
-                    material.SetFloat("_RotationX", 180);
                     material.SetTexture("_Tex", CubemapFromHorizCrossTexture2D(texture));
                 }
                 else if (6 * texture.height == texture.width)
@@ -202,7 +201,6 @@ namespace QuestAppLauncher
                     Debug.LogFormat("Setting horizontal cubemap skybox");
                     destroyTexture = true;
                     material = new Material(Shader.Find("skybox/cube"));
-                    material.SetFloat("_RotationX", 180);
                     material.SetTexture("_Tex", CubemapFromHorizTexture2D(texture));
                 }
                 else

@@ -487,8 +487,9 @@ namespace QuestAppLauncher
         /// </summary>
         /// <param name="path">Image path</param>
         /// <param name="maxPixels">Max pixels</param>
+        /// <param name="adjustForCubemap">If true, adjusts for cubemap by skipping invert if loading cube map</param>
         /// <returns>Image and dimensions</returns>
-        public static async Task<(byte[], int, int)> LoadRawImageAsync(string path, int maxPixels)
+        public static async Task<(byte[], int, int)> LoadRawImageAsync(string path, int maxPixels, bool adjustForCubemap = false)
         {
             int imageHeight = 0;
             int imageWidth = 0;
@@ -500,7 +501,7 @@ namespace QuestAppLauncher
 
                 try
                 {
-                    LoadRawImage(path, maxPixels, out image, out imageWidth, out imageHeight);
+                    LoadRawImage(path, maxPixels, adjustForCubemap, out image, out imageWidth, out imageHeight);
                 }
                 finally
                 {
@@ -516,10 +517,11 @@ namespace QuestAppLauncher
         /// </summary>
         /// <param name="path">Image path</param>
         /// <param name="maxPixels">Max pixels</param>
+        /// <param name="adjustForCubemap">If true, adjusts for cubemap by skipping invert if loading cube map</param>
         /// <param name="image">Output raw image byte array</param>
         /// <param name="imageWidth">Output width</param>
         /// <param name="imageHeight">Output height</param>
-        public static void LoadRawImage(string path, int maxPixels, out byte[] image, out int imageWidth, out int imageHeight)
+        public static void LoadRawImage(string path, int maxPixels, bool adjustForCubemap, out byte[] image, out int imageWidth, out int imageHeight)
         {
             image = null;
             imageWidth = 0;
@@ -555,13 +557,17 @@ namespace QuestAppLauncher
                         rawImage[i * 4] = tmp;
                     }
 
-                    // Swap rows
-                    var row = new byte[imageWidth * 4];
-                    for (var i = 0; i < imageHeight / 2; i++)
+                    // Swap rows if needed
+                    if (!adjustForCubemap ||
+                        (4 * imageHeight != 3 * imageWidth && 6 * imageHeight != imageWidth))
                     {
-                        Buffer.BlockCopy(rawImage, i * imageWidth * 4, row, 0, imageWidth * 4);
-                        Buffer.BlockCopy(rawImage, (imageHeight - i - 1) * imageWidth * 4, rawImage, i * imageWidth * 4, imageWidth * 4);
-                        Buffer.BlockCopy(row, 0, rawImage, (imageHeight - i - 1) * imageWidth * 4, imageWidth * 4);
+                        var row = new byte[imageWidth * 4];
+                        for (var i = 0; i < imageHeight / 2; i++)
+                        {
+                            Buffer.BlockCopy(rawImage, i * imageWidth * 4, row, 0, imageWidth * 4);
+                            Buffer.BlockCopy(rawImage, (imageHeight - i - 1) * imageWidth * 4, rawImage, i * imageWidth * 4, imageWidth * 4);
+                            Buffer.BlockCopy(row, 0, rawImage, (imageHeight - i - 1) * imageWidth * 4, imageWidth * 4);
+                        }
                     }
 
                     image = rawImage;
