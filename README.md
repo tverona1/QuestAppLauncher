@@ -17,7 +17,7 @@ An app launcher for Quest implemented in Unity.
 ## Settings
 There are various options available in Settings. These are:
 * Automatic Tabs: By default, the launcher will display automatic tabs (Quest, Go/GrearVr and 2D). This setting allows you to specify the position of these tabs (left, top, right or off).
-* Custom Tabs: Custom tabs allow for artibtary categorization (like genre etc). See below for how to configure these. This setting, like the above, allows you to specify the position of these tabs (left, top, right or off).
+* Custom Tabs: Custom tabs allow for arbitrary categorization (like genre etc). See below for how to configure these. This setting, like the above, allows you to specify the position of these tabs (left, top, right or off).
 * Sort By: Whether to sort alphabetically or most recent.
 * Show 2D: Whether to show 2D apps.
 * Grid Size: How many columns & rows to display.
