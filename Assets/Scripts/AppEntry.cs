@@ -106,6 +106,12 @@ namespace QuestAppLauncher
 
             Texture2D texture = null;
 
+            if (null == image)
+            {
+                Debug.LogFormat("Error loading icon: Path: {0}, Index: {1}", this.externalIconPath, this.installedApkIndex);
+                return;
+            }
+
             // Set the icon image
             if (imageWidth == 0 || imageHeight == 0)
             {
