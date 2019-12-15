@@ -31,6 +31,8 @@ import android.util.Log;
 import android.graphics.Bitmap;
 import android.graphics.BitmapFactory;
 import android.graphics.drawable.BitmapDrawable;
+import android.graphics.drawable.Drawable;
+import android.graphics.Canvas;
 import android.graphics.Color;
 import java.util.List;
 import java.util.LinkedList;
@@ -119,12 +121,26 @@ public class AppInfo extends UnityPlayerActivity {
     }
 
     public byte[] getIcon(int i) {
-        BitmapDrawable icon = (BitmapDrawable)this.getPackageManager().getApplicationIcon(installedApps.get(i).app);
-        Bitmap bmp = icon.getBitmap();
-        ByteArrayOutputStream stream = new ByteArrayOutputStream();
-        bmp.compress(Bitmap.CompressFormat.JPEG, 100, stream);
-        byte[] byteArray = stream.toByteArray();
-        return byteArray;
+        try {
+            Drawable drawable = this.getPackageManager().getApplicationIcon(installedApps.get(i).app);
+            Bitmap bmp = null;
+            if (drawable instanceof BitmapDrawable) {
+                bmp = ((BitmapDrawable)drawable).getBitmap();
+            } else {
+                bmp = Bitmap.createBitmap(drawable.getIntrinsicWidth(), drawable.getIntrinsicHeight(), Bitmap.Config.ARGB_8888);
+                final Canvas canvas = new Canvas(bmp);
+                drawable.setBounds(0, 0, canvas.getWidth(), canvas.getHeight());
+                drawable.draw(canvas);
+            }
+            ByteArrayOutputStream stream = new ByteArrayOutputStream();
+            bmp.compress(Bitmap.CompressFormat.JPEG, 100, stream);
+            byte[] byteArray = stream.toByteArray();
+            return byteArray;
+        } catch (Exception e) {
+            e.printStackTrace();
+        }
+
+        return null;
     }
 
     public boolean hasUsageStatsPermissions() {
