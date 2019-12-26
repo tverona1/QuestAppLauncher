@@ -1,5 +1,5 @@
 # Quest App Launcher
-[Latest download](https://sidequestvr.com/#/app/199)
+[Latest download](https://sidequestvr.com/#/app/199) | [Patreon](https://www.patreon.com/questapplauncher)
 
 An app launcher for Oculus Quest implemented in Unity.
 
