@@ -1,6 +1,7 @@
 # Quest App Launcher
+[Latest download](https://sidequestvr.com/#/app/199)
 
-An app launcher for Quest implemented in Unity.
+An app launcher for Oculus Quest implemented in Unity.
 
 ## Features
 * Supports launching both 3D and 2D apps
