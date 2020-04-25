@@ -25,6 +25,7 @@ namespace QuestAppLauncher
         public GameObject skyBoxButton;
         public DownloadStatusIndicator downloadStatusIndicator;
         public SkyboxHandler skyboxHandler;
+        public TextMeshProUGUI versionText;
 
         public Toggle tabsAutoOff;
         public Toggle tabsAutoTop;
@@ -62,6 +63,9 @@ namespace QuestAppLauncher
 
             // Skybox callback
             this.skyboxHandler.OnSkyboxSelected = OnSkyboxSelected;
+
+            // Set version text
+            this.versionText.text = string.Format("Version: {0}", Application.version);
 
             // Set current cols & rows
             var colsSlider = this.gridCols.GetComponent<Slider>();

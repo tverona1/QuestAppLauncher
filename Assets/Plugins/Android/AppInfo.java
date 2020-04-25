@@ -172,7 +172,7 @@ public class AppInfo extends UnityPlayerActivity {
             if (stats.containsKey(getPackageName(i))) {
                 AppInfoInternal app = this.installedApps.get(i);
                 app.lastTimeUsed = stats.get(getPackageName(i)).getLastTimeStamp();
-                Log.v(TAG, "Package " + getPackageName(i) + " last time stamp = " + app.lastTimeUsed);
+                Log.i(TAG, "Package " + getPackageName(i) + " last time stamp = " + app.lastTimeUsed);
                 this.installedApps.set(i, app);
             }
         }
@@ -193,7 +193,7 @@ public class AppInfo extends UnityPlayerActivity {
             while ((entry = stream.getNextEntry()) != null) {
 
                 File filePath = new File(outDir, entry.getName());
-                Log.v(TAG, "Unzipping " + filePath);
+                Log.i(TAG, "Unzipping " + filePath);
 
                 if (entry.isDirectory()) {
                     // Create dir if required while unzipping
@@ -217,7 +217,7 @@ public class AppInfo extends UnityPlayerActivity {
 
     public static void addFileToZip(String zipFilePath, String sourceFilePath, String entryName)
     {
-        Log.v(TAG, "Adding to zip: " + sourceFilePath + " to " + zipFilePath + " with entry name " + entryName);
+        Log.i(TAG, "Adding to zip: " + sourceFilePath + " to " + zipFilePath + " with entry name " + entryName);
 
         File zipFile = new File(zipFilePath);
         File tempZipFile;
@@ -290,7 +290,7 @@ public class AppInfo extends UnityPlayerActivity {
     }
 
     public static DecodedBitmap loadRawImage(String imagePath, int maxPixels) {
-        Log.v(TAG, "Decoding image at " + imagePath);
+        Log.i(TAG, "Decoding image at " + imagePath);
 
         try {
             // Decode bitmap with inJustDecodeBounds=true to check dimensions
@@ -301,7 +301,7 @@ public class AppInfo extends UnityPlayerActivity {
             // Calculate inSampleSize
             int height = options.outHeight;
             int width = options.outWidth;
-            Log.v(TAG, "Image dimensions: " + height + "x" + width);
+            Log.i(TAG, "Image dimensions: " + height + "x" + width);
 
             // Calculate the largest inSampleSize value that is a power of 2 and keeps both
             // height and width smaller than the requested height and width.
@@ -309,7 +309,7 @@ public class AppInfo extends UnityPlayerActivity {
             while (height / options.inSampleSize * width / options.inSampleSize > maxPixels) {
                 options.inSampleSize *= 2;
             }
-            Log.v(TAG, "Image sample size: " + options.inSampleSize);
+            Log.i(TAG, "Image sample size: " + options.inSampleSize);
 
             // Decode bitmap with inSampleSize set
             options.inJustDecodeBounds = false;
@@ -318,7 +318,7 @@ public class AppInfo extends UnityPlayerActivity {
             options.inPreferQualityOverSpeed = true;
             Bitmap bmp = BitmapFactory.decodeFile(imagePath, options);
             if (null == bmp) {
-                Log.v(TAG, "Failed to decode image at " + imagePath);
+                Log.e(TAG, "Failed to decode image at " + imagePath);
                 return null;
             }
 
@@ -329,7 +329,7 @@ public class AppInfo extends UnityPlayerActivity {
             bmp.copyPixelsToBuffer(byteBuffer);
             decodedBmp.rawImage = byteBuffer.array();
 
-            Log.v(TAG, "Done decoding image at " + imagePath);
+            Log.i(TAG, "Done decoding image at " + imagePath);
             return decodedBmp;
         } catch (Exception e) {
             e.printStackTrace();
