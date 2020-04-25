@@ -58,7 +58,7 @@ partial class OculusBuildApp : EditorWindow
 		AssetDatabase.SaveAssets();
 	}
 
-#if UNITY_EDITOR_WIN && UNITY_2018_1_OR_NEWER && UNITY_ANDROID
+#if UNITY_EDITOR_WIN && UNITY_2018_3_OR_NEWER && UNITY_ANDROID
 	// Build setting constants
 	const string REMOTE_APK_PATH = "/sdcard/Oculus/Temp";
 	const float USB_TRANSFER_SPEED_THRES = 25.0f;
@@ -198,7 +198,7 @@ partial class OculusBuildApp : EditorWindow
 		buildFailed = true;
 	}
 
-	[MenuItem("Oculus/OVR Build And Run", false, 10)]
+	[MenuItem("Oculus/OVR Build/OVR Build APK And Run %k", false, 20)]
 	static void StartBuildAndRun()
 	{
 		EditorWindow.GetWindow(typeof(OculusBuildApp));
@@ -248,8 +248,12 @@ partial class OculusBuildApp : EditorWindow
 			gradlePath = OVRConfig.Instance.GetGradlePath();
 			jdkPath = OVRConfig.Instance.GetJDKPath();
 			androidSdkPath = OVRConfig.Instance.GetAndroidSDKPath();
-			applicationIdentifier = PlayerSettings.applicationIdentifier;
+			applicationIdentifier = PlayerSettings.GetApplicationIdentifier(BuildTargetGroup.Android);
+#if UNITY_2019_3_OR_NEWER
+			productName = "launcher";
+#else
 			productName = Application.productName;
+#endif
 			dataPath = Application.dataPath;
 
 			buildThread = new Thread(delegate ()
@@ -296,7 +300,12 @@ partial class OculusBuildApp : EditorWindow
 		gradleBuildProcess = new Process();
 		string arguments = "-Xmx4096m -classpath \"" + gradlePath +
 			"\" org.gradle.launcher.GradleMain assembleDebug -x validateSigningDebug";
+#if UNITY_2019_3_OR_NEWER
+		var gradleProjectPath = gradleExport;
+#else
 		var gradleProjectPath = Path.Combine(gradleExport, productName);
+#endif
+
 		var processInfo = new System.Diagnostics.ProcessStartInfo
 		{
 			WorkingDirectory = gradleProjectPath,
@@ -333,7 +342,7 @@ partial class OculusBuildApp : EditorWindow
 					if (e.Data.Contains("SUCCESSFUL"))
 					{
 						UnityEngine.Debug.LogFormat("APK Build Completed: {0}",
-							Path.Combine(gradleProjectPath, "build\\outputs\\apk\\debug", productName + "-debug.apk").Replace("/", "\\"));
+							Path.Combine(Path.Combine(gradleProjectPath, "build\\outputs\\apk\\debug"), productName + "-debug.apk").Replace("/", "\\"));
 						if (!apkOutputSuccessful.HasValue)
 						{
 							apkOutputSuccessful = true;
@@ -399,7 +408,7 @@ partial class OculusBuildApp : EditorWindow
 		{
 			var ps = System.Text.RegularExpressions.Regex.Escape("" + Path.DirectorySeparatorChar);
 			// ignore files .gradle/** build/** foo/.gradle/** and bar/build/**   
-			var ignorePattern = $"^([^{ps}]+{ps})?(\\.gradle|build){ps}";
+			var ignorePattern = string.Format("^([^{0}]+{0})?(\\.gradle|build){0}", ps);
 
 			var syncer = new DirectorySyncer(gradleTempExport,
 				gradleExport, ignorePattern);
@@ -505,7 +514,11 @@ partial class OculusBuildApp : EditorWindow
 
 			// Start the application on the device
 			IncrementProgressBar("Launching application on device . . .");
+#if UNITY_2019_3_OR_NEWER
+			string playerActivityName = "\"" + applicationIdentifier + "/com.unity3d.player.UnityPlayerActivity\"";
+#else
 			string playerActivityName = "\"" + applicationIdentifier + "/" + applicationIdentifier + ".UnityPlayerActivity\"";
+#endif
 			string[] appStartCommand = { "-d shell", "am start -a android.intent.action.MAIN -c android.intent.category.LAUNCHER -S -f 0x10200000 -n", playerActivityName };
 			if (adbTool.RunCommand(appStartCommand, null, out output, out error) != 0) return false;
 			UnityEngine.Debug.Log("OVRADBTool: Application Start Success");
@@ -563,8 +576,8 @@ partial class OculusBuildApp : EditorWindow
 
 	private static void SetupDirectories()
 	{
-		gradleTempExport = Path.Combine(Application.dataPath, "../Temp", "OVRGradleTempExport");
-		gradleExport = Path.Combine(Application.dataPath, "../Temp", "OVRGradleExport");
+		gradleTempExport = Path.Combine(Path.Combine(Application.dataPath, "../Temp"), "OVRGradleTempExport");
+		gradleExport = Path.Combine(Path.Combine(Application.dataPath, "../Temp"), "OVRGradleExport");
 		if (!Directory.Exists(gradleExport))
 		{
 			Directory.CreateDirectory(gradleExport);
@@ -590,4 +603,4 @@ partial class OculusBuildApp : EditorWindow
 		UnityEngine.Debug.Log("OVRBuild: " + message);
 	}
 #endif //UNITY_EDITOR_WIN && UNITY_2018_1_OR_NEWER && UNITY_ANDROID
-}
+		}

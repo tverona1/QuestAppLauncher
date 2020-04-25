@@ -14,6 +14,10 @@ ANY KIND, either express or implied. See the License for the specific language g
 permissions and limitations under the License.
 ************************************************************************************/
 
+#if USING_XR_MANAGEMENT && USING_XR_SDK_OCULUS
+#define USING_XR_SDK
+#endif
+
 #if !(UNITY_EDITOR_WIN || UNITY_STANDALONE_WIN || (UNITY_ANDROID && !UNITY_EDITOR))
 #define OVRPLUGIN_UNSUPPORTED_PLATFORM
 #endif
@@ -39,7 +43,7 @@ public static class OVRPlugin
 #if OVRPLUGIN_UNSUPPORTED_PLATFORM
 	public static readonly System.Version wrapperVersion = _versionZero;
 #else
-	public static readonly System.Version wrapperVersion = OVRP_1_38_0.version;
+	public static readonly System.Version wrapperVersion = OVRP_1_47_0.version;
 #endif
 
 #if !OVRPLUGIN_UNSUPPORTED_PLATFORM
@@ -220,6 +224,9 @@ public static class OVRPlugin
 		Touch = LTouch | RTouch,
 		Remote = 0x00000004,
 		Gamepad = 0x00000010,
+		LHand = 0x00000020,
+		RHand = 0x00000040,
+		Hands = LHand | RHand,
 		Touchpad = 0x08000000,
 		LTrackedRemote = 0x01000000,
 		RTrackedRemote = 0x02000000,
@@ -421,6 +428,8 @@ public static class OVRPlugin
 		ShapeFlag_Cubemap = unchecked((int)OverlayShape.Cubemap << OverlayShapeFlagShift),
 		ShapeFlag_OffcenterCubemap = unchecked((int)OverlayShape.OffcenterCubemap << OverlayShapeFlagShift),
 		ShapeFlagRangeMask = unchecked((int)0xF << OverlayShapeFlagShift),
+
+		Hidden = unchecked((int)0x000000200),
 	}
 
 	[StructLayout(LayoutKind.Sequential)]
@@ -440,6 +449,34 @@ public static class OVRPlugin
 		public override string ToString()
 		{
 			return string.Format("{0}, {1}, {2}", x, y, z);
+		}
+	}
+
+	[StructLayout(LayoutKind.Sequential)]
+	public struct Vector4f
+	{
+		public float x;
+		public float y;
+		public float z;
+		public float w;
+		public static readonly Vector4f zero = new Vector4f { x = 0.0f, y = 0.0f, z = 0.0f, w = 0.0f };
+		public override string ToString()
+		{
+			return string.Format("{0}, {1}, {2}, {3}", x, y, z, w);
+		}
+	}
+
+	[StructLayout(LayoutKind.Sequential)]
+	public struct Vector4s
+	{
+		public short x;
+		public short y;
+		public short z;
+		public short w;
+		public static readonly Vector4s zero = new Vector4s { x = 0, y = 0, z = 0, w = 0 };
+		public override string ToString()
+		{
+			return string.Format("{0}, {1}, {2}, {3}", x, y, z, w);
 		}
 	}
 
@@ -804,7 +841,7 @@ public static class OVRPlugin
 	[StructLayout(LayoutKind.Sequential)]
 	public struct CameraIntrinsics
 	{
-		public bool IsValid;
+		public Bool IsValid;
 		public double LastChangedTimeSeconds;
 		public Fovf FOVPort;
 		public float VirtualNearPlaneDistanceMeters;
@@ -815,7 +852,7 @@ public static class OVRPlugin
 	[StructLayout(LayoutKind.Sequential)]
 	public struct CameraExtrinsics
 	{
-		public bool IsValid;
+		public Bool IsValid;
 		public double LastChangedTimeSeconds;
 		public CameraStatus CameraStatusData;
 		public Node AttachedToNode;
@@ -884,6 +921,225 @@ public static class OVRPlugin
 		Recti[] ViewportRect;
 		Posef Pose;
 		int LayerSubmitFlags;
+	}
+
+	public enum TrackingConfidence
+	{
+		Low = 0,
+		High = 0x3f800000,
+	}
+
+	public enum Hand
+	{
+		None = -1,
+		HandLeft = 0,
+		HandRight = 1,
+	}
+
+	[Flags]
+	public enum HandStatus
+	{
+		HandTracked = (1 << 0), // if this is set the hand pose and bone rotations data is usable
+		InputStateValid = (1 << 1), // if this is set the pointer pose and pinch data is usable
+		SystemGestureInProgress = (1 << 6), // if this is set the hand is currently processing a system gesture
+	}
+
+	public enum BoneId
+	{
+		Invalid                 = -1,
+
+		Hand_Start              = 0,
+		Hand_WristRoot          = Hand_Start + 0, // root frame of the hand, where the wrist is located
+		Hand_ForearmStub        = Hand_Start + 1, // frame for user's forearm
+		Hand_Thumb0             = Hand_Start + 2, // thumb trapezium bone
+		Hand_Thumb1             = Hand_Start + 3, // thumb metacarpal bone
+		Hand_Thumb2             = Hand_Start + 4, // thumb proximal phalange bone
+		Hand_Thumb3             = Hand_Start + 5, // thumb distal phalange bone
+		Hand_Index1             = Hand_Start + 6, // index proximal phalange bone
+		Hand_Index2             = Hand_Start + 7, // index intermediate phalange bone
+		Hand_Index3             = Hand_Start + 8, // index distal phalange bone
+		Hand_Middle1            = Hand_Start + 9, // middle proximal phalange bone
+		Hand_Middle2            = Hand_Start + 10, // middle intermediate phalange bone
+		Hand_Middle3            = Hand_Start + 11, // middle distal phalange bone
+		Hand_Ring1              = Hand_Start + 12, // ring proximal phalange bone
+		Hand_Ring2              = Hand_Start + 13, // ring intermediate phalange bone
+		Hand_Ring3              = Hand_Start + 14, // ring distal phalange bone
+		Hand_Pinky0             = Hand_Start + 15, // pinky metacarpal bone
+		Hand_Pinky1             = Hand_Start + 16, // pinky proximal phalange bone
+		Hand_Pinky2             = Hand_Start + 17, // pinky intermediate phalange bone
+		Hand_Pinky3             = Hand_Start + 18, // pinky distal phalange bone
+		Hand_MaxSkinnable       = Hand_Start + 19,
+		// Bone tips are position only. They are not used for skinning but are useful for hit-testing.
+		// NOTE: Hand_ThumbTip == Hand_MaxSkinnable since the extended tips need to be contiguous
+		Hand_ThumbTip           = Hand_Start + Hand_MaxSkinnable + 0, // tip of the thumb
+		Hand_IndexTip           = Hand_Start + Hand_MaxSkinnable + 1, // tip of the index finger
+		Hand_MiddleTip          = Hand_Start + Hand_MaxSkinnable + 2, // tip of the middle finger
+		Hand_RingTip            = Hand_Start + Hand_MaxSkinnable + 3, // tip of the ring finger
+		Hand_PinkyTip           = Hand_Start + Hand_MaxSkinnable + 4, // tip of the pinky
+		Hand_End                = Hand_Start + Hand_MaxSkinnable + 5,
+
+		// add new bones here
+
+		Max = Hand_End + 0,
+	}
+
+	public enum HandFinger
+	{
+		Thumb = 0,
+		Index = 1,
+		Middle = 2,
+		Ring = 3,
+		Pinky = 4,
+		Max = 5,
+	}
+
+    [Flags]
+	public enum HandFingerPinch
+	{
+		Thumb  = (1 << HandFinger.Thumb),
+		Index  = (1 << HandFinger.Index),
+		Middle = (1 << HandFinger.Middle),
+		Ring   = (1 << HandFinger.Ring),
+		Pinky  = (1 << HandFinger.Pinky),
+	}
+
+	[StructLayout(LayoutKind.Sequential)]
+	public struct HandState
+	{
+		public HandStatus Status;
+		public Posef RootPose;
+		public Quatf[] BoneRotations;
+		public HandFingerPinch Pinches;
+		public float[] PinchStrength;
+		public Posef PointerPose;
+		public float HandScale;
+		public TrackingConfidence HandConfidence;
+		public TrackingConfidence[] FingerConfidences;
+		public double RequestedTimeStamp;
+		public double SampleTimeStamp;
+	}
+
+	[StructLayout(LayoutKind.Sequential)]
+	private struct HandStateInternal
+	{
+		public HandStatus Status;
+		public Posef RootPose;
+		public Quatf BoneRotations_0;
+		public Quatf BoneRotations_1;
+		public Quatf BoneRotations_2;
+		public Quatf BoneRotations_3;
+		public Quatf BoneRotations_4;
+		public Quatf BoneRotations_5;
+		public Quatf BoneRotations_6;
+		public Quatf BoneRotations_7;
+		public Quatf BoneRotations_8;
+		public Quatf BoneRotations_9;
+		public Quatf BoneRotations_10;
+		public Quatf BoneRotations_11;
+		public Quatf BoneRotations_12;
+		public Quatf BoneRotations_13;
+		public Quatf BoneRotations_14;
+		public Quatf BoneRotations_15;
+		public Quatf BoneRotations_16;
+		public Quatf BoneRotations_17;
+		public Quatf BoneRotations_18;
+		public Quatf BoneRotations_19;
+		public Quatf BoneRotations_20;
+		public Quatf BoneRotations_21;
+		public Quatf BoneRotations_22;
+		public Quatf BoneRotations_23;
+		public HandFingerPinch Pinches;
+		public float PinchStrength_0;
+		public float PinchStrength_1;
+		public float PinchStrength_2;
+		public float PinchStrength_3;
+		public float PinchStrength_4;
+		public Posef PointerPose;
+		public float HandScale;
+		public TrackingConfidence HandConfidence;
+		public TrackingConfidence FingerConfidences_0;
+		public TrackingConfidence FingerConfidences_1;
+		public TrackingConfidence FingerConfidences_2;
+		public TrackingConfidence FingerConfidences_3;
+		public TrackingConfidence FingerConfidences_4;
+		public double RequestedTimeStamp;
+		public double SampleTimeStamp;
+	}
+
+	[StructLayout(LayoutKind.Sequential)]
+	public struct BoneCapsule
+	{
+		public short BoneIndex;
+		[MarshalAs(UnmanagedType.ByValArray, SizeConst = 2)]
+		public Vector3f[] Points;
+		public float Radius;
+	}
+
+	[StructLayout(LayoutKind.Sequential)]
+	public struct Bone
+	{
+		public BoneId Id;
+		public short ParentBoneIndex;
+		public Posef Pose;
+	}
+
+	public enum SkeletonConstants
+	{
+		MaxBones = BoneId.Max,
+		MaxBoneCapsules = 19,
+	}
+
+	public enum SkeletonType
+	{
+		None = -1,
+		HandLeft = 0,
+		HandRight = 1,
+	}
+
+	[StructLayout(LayoutKind.Sequential)]
+	public struct Skeleton
+	{
+		public SkeletonType Type;
+		public uint NumBones;
+		public uint NumBoneCapsules;
+		[MarshalAs(UnmanagedType.ByValArray, SizeConst = (int)SkeletonConstants.MaxBones)]
+		public Bone[] Bones;
+		[MarshalAs(UnmanagedType.ByValArray, SizeConst = (int)SkeletonConstants.MaxBoneCapsules)]
+		public BoneCapsule[] BoneCapsules;
+	}
+
+	public enum MeshConstants
+	{
+		MaxVertices = 3000,
+		MaxIndices = MaxVertices * 6,
+	}
+
+	public enum MeshType
+	{
+		None = -1,
+		HandLeft = 0,
+		HandRight = 1,
+	}
+
+	[StructLayout(LayoutKind.Sequential)]
+	public class Mesh
+	{
+		public MeshType Type;
+		public uint NumVertices;
+		public uint NumIndices;
+
+		[MarshalAs(UnmanagedType.ByValArray, SizeConst = (int)MeshConstants.MaxVertices)]
+		public Vector3f[] VertexPositions;
+		[MarshalAs(UnmanagedType.ByValArray, SizeConst = (int)MeshConstants.MaxIndices)]
+		public short[] Indices;
+		[MarshalAs(UnmanagedType.ByValArray, SizeConst = (int)MeshConstants.MaxVertices)]
+		public Vector3f[] VertexNormals;
+		[MarshalAs(UnmanagedType.ByValArray, SizeConst = (int)MeshConstants.MaxVertices)]
+		public Vector2f[] VertexUV0;
+		[MarshalAs(UnmanagedType.ByValArray, SizeConst = (int)MeshConstants.MaxVertices)]
+		public Vector4s[] BlendIndices;
+		[MarshalAs(UnmanagedType.ByValArray, SizeConst = (int)MeshConstants.MaxVertices)]
+		public Vector4f[] BlendWeights;
 	}
 
 	public static bool initialized
@@ -1510,7 +1766,7 @@ public static class OVRPlugin
 
 	public static bool EnqueueSubmitLayer(bool onTop, bool headLocked, bool noDepthBufferTesting, IntPtr leftTexture, IntPtr rightTexture, int layerId, int frameIndex, Posef pose, Vector3f scale, int layerIndex = 0, OverlayShape shape = OverlayShape.Quad,
 										bool overrideTextureRectMatrix = false, TextureRectMatrixf textureRectMatrix = default(TextureRectMatrixf), bool overridePerLayerColorScaleAndOffset = false, Vector4 colorScale = default(Vector4), Vector4 colorOffset = default(Vector4),
-										bool expensiveSuperSample = false)
+										bool expensiveSuperSample = false, bool hidden = false)
 	{
 #if OVRPLUGIN_UNSUPPORTED_PLATFORM
 		return false;
@@ -1529,6 +1785,8 @@ public static class OVRPlugin
 				flags |= (uint)OverlayFlag.NoDepth;
 			if (expensiveSuperSample)
 				flags |= (uint)OverlayFlag.ExpensiveSuperSample;
+			if (hidden)
+				flags |= (uint)OverlayFlag.Hidden;
 
 			if (shape == OverlayShape.Cylinder || shape == OverlayShape.Cubemap)
 			{
@@ -2461,6 +2719,147 @@ public static class OVRPlugin
 #endif
 	}
 
+	public static bool OverrideExternalCameraFov(int cameraId, bool useOverriddenFov, Fovf fov)
+	{
+#if OVRPLUGIN_UNSUPPORTED_PLATFORM
+		return false;
+#else
+		if (version >= OVRP_1_44_0.version)
+		{
+			bool retValue = true;
+			Result result = OVRP_1_44_0.ovrp_OverrideExternalCameraFov(cameraId, useOverriddenFov ? Bool.True : Bool.False, ref fov);
+			if (result != Result.Success)
+			{
+				retValue = false;
+			}
+			return retValue;
+		}
+		else
+		{
+			return false;
+		}
+#endif
+	}
+
+
+	public static bool GetUseOverriddenExternalCameraFov(int cameraId)
+	{
+#if OVRPLUGIN_UNSUPPORTED_PLATFORM
+		return false;
+#else
+		if (version >= OVRP_1_44_0.version)
+		{
+			bool retValue = true;
+			Bool useOverriddenFov = Bool.False;
+			Result result = OVRP_1_44_0.ovrp_GetUseOverriddenExternalCameraFov(cameraId, out useOverriddenFov);
+			if (result != Result.Success)
+			{
+				retValue = false;
+			}
+			if (useOverriddenFov == Bool.False)
+			{
+				retValue = false;
+			}
+			return retValue;
+		}
+		else
+		{
+			return false;
+		}
+#endif
+	}
+
+	public static bool OverrideExternalCameraStaticPose(int cameraId, bool useOverriddenPose, Posef pose)
+	{
+#if OVRPLUGIN_UNSUPPORTED_PLATFORM
+		return false;
+#else
+		if (version >= OVRP_1_44_0.version)
+		{
+			bool retValue = true;
+			Result result = OVRP_1_44_0.ovrp_OverrideExternalCameraStaticPose(cameraId, useOverriddenPose ? Bool.True : Bool.False, ref pose);
+			if (result != Result.Success)
+			{
+				retValue = false;
+			}
+			return retValue;
+		}
+		else
+		{
+			return false;
+		}
+#endif
+	}
+
+	public static bool GetUseOverriddenExternalCameraStaticPose(int cameraId)
+	{
+#if OVRPLUGIN_UNSUPPORTED_PLATFORM
+		return false;
+#else
+		if (version >= OVRP_1_44_0.version)
+		{
+			bool retValue = true;
+			Bool useOverriddenStaticPose = Bool.False;
+			Result result = OVRP_1_44_0.ovrp_GetUseOverriddenExternalCameraStaticPose(cameraId, out useOverriddenStaticPose);
+			if (result != Result.Success)
+			{
+				retValue = false;
+			}
+			if (useOverriddenStaticPose == Bool.False)
+			{
+				retValue = false;
+			}
+			return retValue;
+		}
+		else
+		{
+			return false;
+		}
+#endif
+	}
+
+	public static bool ResetDefaultExternalCamera()
+	{
+#if OVRPLUGIN_UNSUPPORTED_PLATFORM
+		return false;
+#else
+		if (version >= OVRP_1_44_0.version)
+		{
+			Result result = OVRP_1_44_0.ovrp_ResetDefaultExternalCamera();
+			if (result != Result.Success)
+			{
+				return false;
+			}
+			return true;
+		}
+		else
+		{
+			return false;
+		}
+#endif
+	}
+
+	public static bool SetDefaultExternalCamera(string cameraName, ref CameraIntrinsics cameraIntrinsics, ref CameraExtrinsics cameraExtrinsics)
+	{
+#if OVRPLUGIN_UNSUPPORTED_PLATFORM
+		return false;
+#else
+		if (version >= OVRP_1_44_0.version)
+		{
+			Result result = OVRP_1_44_0.ovrp_SetDefaultExternalCamera(cameraName, ref cameraIntrinsics, ref cameraExtrinsics);
+			if (result != Result.Success)
+			{
+				return false;
+			}
+			return true;
+		}
+		else
+		{
+			return false;
+		}
+#endif
+	}
+
 	public static Vector3f GetBoundaryDimensions(BoundaryType boundaryType)
 	{
 #if OVRPLUGIN_UNSUPPORTED_PLATFORM
@@ -3010,6 +3409,46 @@ public static class OVRPlugin
 		}
 	}
 
+	public static bool useDynamicFixedFoveatedRendering
+	{
+		get
+		{
+#if OVRPLUGIN_UNSUPPORTED_PLATFORM
+			return false;
+#else
+			if (version >= OVRP_1_46_0.version && fixedFoveatedRenderingSupported)
+			{
+				Bool isDynamic = Bool.False;
+				Result result = OVRP_1_46_0.ovrp_GetTiledMultiResDynamic(out isDynamic);
+				if (result != Result.Success)
+				{
+					//Debug.LogWarning("ovrp_GetTiledMultiResDynamic return " + result);
+				}
+				return isDynamic != Bool.False;
+			}
+			else
+			{
+				return false;
+			}
+#endif
+		}
+		set
+		{
+#if OVRPLUGIN_UNSUPPORTED_PLATFORM
+			return;
+#else
+			if (version >= OVRP_1_46_0.version && fixedFoveatedRenderingSupported)
+			{
+				Result result = OVRP_1_46_0.ovrp_SetTiledMultiResDynamic(value ? Bool.True : Bool.False);
+				if (result != Result.Success)
+				{
+					//Debug.LogWarning("ovrp_SetTiledMultiResDynamic return " + result);
+				}
+			}
+#endif
+		}
+	}
+
 	[Obsolete("Please use fixedFoveatedRenderingSupported instead", false)]
 	public static bool tiledMultiResSupported
 	{
@@ -3457,6 +3896,11 @@ public static class OVRPlugin
 #if OVRPLUGIN_UNSUPPORTED_PLATFORM
 		return false;
 #else
+#if USING_XR_SDK
+		OculusXRPlugin.SetColorScale(colorScale.x, colorScale.y, colorScale.z, colorScale.w);
+		OculusXRPlugin.SetColorOffset(colorOffset.x, colorOffset.y, colorOffset.z, colorOffset.w);
+		return true;
+#else
 		if (version >= OVRP_1_31_0.version)
 		{
 			Bool ovrpApplyToAllLayers = applyToAllLayers ? Bool.True : Bool.False;
@@ -3466,6 +3910,7 @@ public static class OVRPlugin
 		{
 			return false;
 		}
+#endif
 #endif
 	}
 
@@ -3839,7 +4284,7 @@ public static class OVRPlugin
 #endif
 		}
 
-		public static bool EncodeMrcFrame(System.IntPtr textureHandle, float[] audioData, int audioChannels, double timestamp, ref int outSyncId)
+		public static bool EncodeMrcFrame(System.IntPtr textureHandle, float[] audioData, int audioFrames, int audioChannels, double timestamp, ref int outSyncId)
 		{
 #if OVRPLUGIN_UNSUPPORTED_PLATFORM
 			return false;
@@ -3864,7 +4309,7 @@ public static class OVRPlugin
 				{
 					pinnedAudioData = GCHandle.Alloc(audioData, GCHandleType.Pinned);
 					audioDataPtr = pinnedAudioData.AddrOfPinnedObject();
-					audioDataLen = audioData.Length * 4;
+					audioDataLen = audioFrames * 4;
 				}
 				Result result = OVRP_1_38_0.ovrp_Media_EncodeMrcFrame(textureHandle, audioDataPtr, audioDataLen, audioChannels, timestamp, ref outSyncId);
 				if (audioData != null)
@@ -3883,7 +4328,7 @@ public static class OVRPlugin
 #if !OVRPLUGIN_UNSUPPORTED_PLATFORM
 		static Texture2D cachedTexture = null;
 #endif
-		public static bool EncodeMrcFrame(RenderTexture frame, float[] audioData, int audioChannels, double timestamp, ref int outSyncId)
+		public static bool EncodeMrcFrame(RenderTexture frame, float[] audioData, int audioFrames, int audioChannels, double timestamp, ref int outSyncId)
 		{
 #if OVRPLUGIN_UNSUPPORTED_PLATFORM
 			return false;
@@ -3923,7 +4368,7 @@ public static class OVRPlugin
 				{
 					pinnedAudioData = GCHandle.Alloc(audioData, GCHandleType.Pinned);
 					audioDataPtr = pinnedAudioData.AddrOfPinnedObject();
-					audioDataLen = audioData.Length * 4;
+					audioDataLen = audioFrames * 4;
 				}
 				Result result = OVRP_1_38_0.ovrp_Media_EncodeMrcFrame(pointer, audioDataPtr, audioDataLen, audioChannels, timestamp, ref outSyncId);
 
@@ -3967,6 +4412,202 @@ public static class OVRPlugin
 		if(version >= OVRP_1_38_0.version)
 		{
 			return OVRP_1_38_0.ovrp_SetDeveloperMode(active) == Result.Success;
+		}
+		else
+		{
+			return false;
+		}
+#endif
+	}
+
+	public static float GetAdaptiveGPUPerformanceScale()
+	{
+#if OVRPLUGIN_UNSUPPORTED_PLATFORM
+		return 1.0f;
+#else
+		if (version >= OVRP_1_42_0.version)
+		{
+			float adaptiveScale = 1.0f;
+			if (OVRP_1_42_0.ovrp_GetAdaptiveGpuPerformanceScale2(ref adaptiveScale) == Result.Success)
+			{
+				return adaptiveScale;
+			}
+			return 1.0f;
+		}
+		else
+		{
+			return 1.0f;
+		}
+#endif
+	}
+
+	public static bool GetHandTrackingEnabled()
+	{
+#if OVRPLUGIN_UNSUPPORTED_PLATFORM
+		return false;
+#else
+		if (version >= OVRP_1_44_0.version)
+		{
+			Bool val = OVRPlugin.Bool.False;
+			Result res = OVRP_1_44_0.ovrp_GetHandTrackingEnabled(ref val);
+			if (res == Result.Success)
+			{
+				return val == OVRPlugin.Bool.True;
+			}
+
+			return false;
+		}
+		else
+		{
+			return false;
+		}
+#endif
+	}
+
+	private static HandStateInternal cachedHandState = new HandStateInternal();
+	public static bool GetHandState(Step stepId, Hand hand, ref HandState handState)
+	{
+#if OVRPLUGIN_UNSUPPORTED_PLATFORM
+		return false;
+#else
+		if (version >= OVRP_1_44_0.version)
+		{
+			Result res = OVRP_1_44_0.ovrp_GetHandState(stepId, hand, out cachedHandState);
+			if (res == Result.Success)
+			{
+				// attempt to avoid allocations if client provides appropriately pre-initialized HandState
+				if (handState.BoneRotations == null || handState.BoneRotations.Length != ((int)BoneId.Hand_End - (int)BoneId.Hand_Start))
+				{
+					handState.BoneRotations = new Quatf[(int)BoneId.Hand_End - (int)BoneId.Hand_Start];
+				}
+				if (handState.PinchStrength == null || handState.PinchStrength.Length != (int)HandFinger.Max)
+				{
+					handState.PinchStrength = new float[(int)HandFinger.Max];
+				}
+				if (handState.FingerConfidences == null || handState.FingerConfidences.Length != (int)HandFinger.Max)
+				{
+					handState.FingerConfidences = new TrackingConfidence[(int)HandFinger.Max];
+				}
+
+				// unrolling the arrays is necessary to avoid per-frame allocations during marshaling
+				handState.Status = cachedHandState.Status;
+				handState.RootPose = cachedHandState.RootPose;
+				handState.BoneRotations[0] = cachedHandState.BoneRotations_0;
+				handState.BoneRotations[1] = cachedHandState.BoneRotations_1;
+				handState.BoneRotations[2] = cachedHandState.BoneRotations_2;
+				handState.BoneRotations[3] = cachedHandState.BoneRotations_3;
+				handState.BoneRotations[4] = cachedHandState.BoneRotations_4;
+				handState.BoneRotations[5] = cachedHandState.BoneRotations_5;
+				handState.BoneRotations[6] = cachedHandState.BoneRotations_6;
+				handState.BoneRotations[7] = cachedHandState.BoneRotations_7;
+				handState.BoneRotations[8] = cachedHandState.BoneRotations_8;
+				handState.BoneRotations[9] = cachedHandState.BoneRotations_9;
+				handState.BoneRotations[10] = cachedHandState.BoneRotations_10;
+				handState.BoneRotations[11] = cachedHandState.BoneRotations_11;
+				handState.BoneRotations[12] = cachedHandState.BoneRotations_12;
+				handState.BoneRotations[13] = cachedHandState.BoneRotations_13;
+				handState.BoneRotations[14] = cachedHandState.BoneRotations_14;
+				handState.BoneRotations[15] = cachedHandState.BoneRotations_15;
+				handState.BoneRotations[16] = cachedHandState.BoneRotations_16;
+				handState.BoneRotations[17] = cachedHandState.BoneRotations_17;
+				handState.BoneRotations[18] = cachedHandState.BoneRotations_18;
+				handState.BoneRotations[19] = cachedHandState.BoneRotations_19;
+				handState.BoneRotations[20] = cachedHandState.BoneRotations_20;
+				handState.BoneRotations[21] = cachedHandState.BoneRotations_21;
+				handState.BoneRotations[22] = cachedHandState.BoneRotations_22;
+				handState.BoneRotations[23] = cachedHandState.BoneRotations_23;
+				handState.Pinches = cachedHandState.Pinches;
+				handState.PinchStrength[0] = cachedHandState.PinchStrength_0;
+				handState.PinchStrength[1] = cachedHandState.PinchStrength_1;
+				handState.PinchStrength[2] = cachedHandState.PinchStrength_2;
+				handState.PinchStrength[3] = cachedHandState.PinchStrength_3;
+				handState.PinchStrength[4] = cachedHandState.PinchStrength_4;
+				handState.PointerPose = cachedHandState.PointerPose;
+				handState.HandScale = cachedHandState.HandScale;
+				handState.HandConfidence = cachedHandState.HandConfidence;
+				handState.FingerConfidences[0] = cachedHandState.FingerConfidences_0;
+				handState.FingerConfidences[1] = cachedHandState.FingerConfidences_1;
+				handState.FingerConfidences[2] = cachedHandState.FingerConfidences_2;
+				handState.FingerConfidences[3] = cachedHandState.FingerConfidences_3;
+				handState.FingerConfidences[4] = cachedHandState.FingerConfidences_4;
+				handState.RequestedTimeStamp = cachedHandState.RequestedTimeStamp;
+				handState.SampleTimeStamp = cachedHandState.SampleTimeStamp;
+
+				return true;
+			}
+			else
+			{
+				return false;
+			}
+		}
+		else
+		{
+			return false;
+		}
+#endif
+	}
+
+	public static bool GetSkeleton(SkeletonType skeletonType, out Skeleton skeleton)
+	{
+#if OVRPLUGIN_UNSUPPORTED_PLATFORM
+		skeleton = default(Skeleton);
+		return false;
+#else
+		if (version >= OVRP_1_44_0.version)
+		{
+			return OVRP_1_44_0.ovrp_GetSkeleton(skeletonType, out skeleton) == Result.Success;
+		}
+		else
+		{
+			skeleton = default(Skeleton);
+			return false;
+		}
+#endif
+	}
+
+	public static bool GetMesh(MeshType meshType, out Mesh mesh)
+	{
+#if OVRPLUGIN_UNSUPPORTED_PLATFORM
+		mesh = new Mesh();
+		return false;
+#else
+		if (version >= OVRP_1_44_0.version)
+		{
+			mesh = new Mesh();
+			int meshSize = Marshal.SizeOf(mesh);
+			System.IntPtr meshPtr = Marshal.AllocHGlobal(meshSize);
+			Result result = OVRP_1_44_0.ovrp_GetMesh(meshType, meshPtr);
+			if (result == Result.Success)
+			{
+				Marshal.PtrToStructure(meshPtr, mesh);
+			}
+			Marshal.FreeHGlobal(meshPtr);
+
+			return (result == Result.Success);
+		}
+		else
+		{
+			mesh = new Mesh();
+			return false;
+		}
+#endif
+	}
+
+	public static bool GetSystemHmd3DofModeEnabled()
+	{
+#if OVRPLUGIN_UNSUPPORTED_PLATFORM
+		return false;
+#else
+		if (version >= OVRP_1_45_0.version)
+		{
+			Bool val = Bool.False;
+			Result res = OVRP_1_45_0.ovrp_GetSystemHmd3DofModeEnabled(ref val);
+			if (res == Result.Success)
+			{
+				return val == Bool.True;
+			}
+
+			return false;
 		}
 		else
 		{
@@ -4719,6 +5360,95 @@ public static class OVRPlugin
 
 		[DllImport(pluginName, CallingConvention = CallingConvention.Cdecl)]
 		public static extern Result ovrp_GetNodePositionValid(Node nodeId, ref Bool nodePositionValid);
+	}
+
+	private static class OVRP_1_39_0
+	{
+		public static readonly System.Version version = new System.Version(1, 39, 0);
+	}
+
+	private static class OVRP_1_40_0
+	{
+		public static readonly System.Version version = new System.Version(1, 40, 0);
+	}
+
+	private static class OVRP_1_41_0
+	{
+		public static readonly System.Version version = new System.Version(1, 41, 0);
+	}
+
+	private static class OVRP_1_42_0
+	{
+		public static readonly System.Version version = new System.Version(1, 42, 0);
+
+		[DllImport(pluginName, CallingConvention = CallingConvention.Cdecl)]
+		public static extern Result ovrp_GetAdaptiveGpuPerformanceScale2(ref float adaptiveGpuPerformanceScale);
+	}
+
+	private static class OVRP_1_43_0
+	{
+		public static readonly System.Version version = new System.Version(1, 43, 0);
+	}
+
+	private static class OVRP_1_44_0
+	{
+		public static readonly System.Version version = new System.Version(1, 44, 0);
+
+		[DllImport(pluginName, CallingConvention = CallingConvention.Cdecl)]
+		public static extern Result ovrp_GetHandTrackingEnabled(ref Bool handTrackingEnabled);
+
+		[DllImport(pluginName, CallingConvention = CallingConvention.Cdecl)]
+		public static extern Result ovrp_GetHandState(Step stepId, Hand hand, out HandStateInternal handState);
+
+		[DllImport(pluginName, CallingConvention = CallingConvention.Cdecl)]
+		public static extern Result ovrp_GetSkeleton(SkeletonType skeletonType, out Skeleton skeleton);
+
+		[DllImport(pluginName, CallingConvention = CallingConvention.Cdecl)]
+		public static extern Result ovrp_GetMesh(MeshType meshType, System.IntPtr meshPtr);
+
+		[DllImport(pluginName, CallingConvention = CallingConvention.Cdecl)]
+		public static extern Result ovrp_OverrideExternalCameraFov(int cameraId, Bool useOverriddenFov, ref Fovf fov);
+
+		[DllImport(pluginName, CallingConvention = CallingConvention.Cdecl)]
+		public static extern Result ovrp_GetUseOverriddenExternalCameraFov(int cameraId, out Bool useOverriddenFov);
+
+		[DllImport(pluginName, CallingConvention = CallingConvention.Cdecl)]
+		public static extern Result ovrp_OverrideExternalCameraStaticPose(int cameraId, Bool useOverriddenPose, ref Posef pose);
+
+		[DllImport(pluginName, CallingConvention = CallingConvention.Cdecl)]
+		public static extern Result ovrp_GetUseOverriddenExternalCameraStaticPose(int cameraId, out Bool useOverriddenStaticPose);
+
+		[DllImport(pluginName, CallingConvention = CallingConvention.Cdecl)]
+		public static extern Result ovrp_ResetDefaultExternalCamera();
+
+		[DllImport(pluginName, CallingConvention = CallingConvention.Cdecl)]
+		public static extern Result ovrp_SetDefaultExternalCamera(string cameraName, ref CameraIntrinsics cameraIntrinsics, ref CameraExtrinsics cameraExtrinsics);
+
+	}
+
+	private static class OVRP_1_45_0
+	{
+		public static readonly System.Version version = new System.Version(1, 45, 0);
+
+		[DllImport(pluginName, CallingConvention = CallingConvention.Cdecl)]
+		public static extern Result ovrp_GetSystemHmd3DofModeEnabled(ref Bool enabled);
+	}
+
+	private static class OVRP_1_46_0
+	{
+		public static readonly System.Version version = new System.Version(1, 46, 0);
+
+		[DllImport(pluginName, CallingConvention = CallingConvention.Cdecl)]
+		public static extern Result ovrp_GetTiledMultiResDynamic(out Bool isDynamic);
+
+
+		[DllImport(pluginName, CallingConvention = CallingConvention.Cdecl)]
+		public static extern Result ovrp_SetTiledMultiResDynamic(Bool isDynamic);
+	}
+
+	private static class OVRP_1_47_0
+	{
+		public static readonly System.Version version = new System.Version(1, 47, 0);
 	}
 
 #endif // !OVRPLUGIN_UNSUPPORTED_PLATFORM

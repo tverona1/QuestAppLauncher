@@ -34,12 +34,9 @@ public enum PlayModeState
 
 class ONSPPropagationSerializationManager
 {
-    private static PlayModeState _currentState = PlayModeState.Stopped;
-
     static ONSPPropagationSerializationManager()
     {
         EditorSceneManager.sceneSaving += OnSceneSaving;
-        EditorApplication.playmodeStateChanged = OnUnityPlayModeChanged;
     }
     public int callbackOrder { get { return 0; } }
     public void OnPreprocessBuild(BuildTarget target, string path)
@@ -47,13 +44,13 @@ class ONSPPropagationSerializationManager
         Debug.Log("ONSPPropagationSerializationManager.OnPreprocessBuild for target " + target + " at path " + path);
     }
 
-    [MenuItem("Oculus/Oculus Spatializer/Build audio geometry for current scene")]
+    [MenuItem("Oculus/Spatializer/Build audio geometry for current scene")]
     public static void BuildAudioGeometryForCurrentScene()
     {
         BuildAudioGeometryForScene(EditorSceneManager.GetActiveScene());
     }
 
-    [MenuItem("Oculus/Oculus Spatializer/Rebuild audio geometry all scenes")]
+    [MenuItem("Oculus/Spatializer/Rebuild audio geometry all scenes")]
     public static void RebuildAudioGeometryForAllScenes()
     {
         Debug.Log("Rebuilding geometry for all scenes");
@@ -73,7 +70,7 @@ class ONSPPropagationSerializationManager
 
     private static void BuildAudioGeometryForScene(Scene scene)
     {
-        Debug.Log("Building audio geometry for scene" + scene.name);
+        Debug.Log("Building audio geometry for scene " + scene.name);
 
         List<GameObject> rootObjects = new List<GameObject>();
         scene.GetRootGameObjects(rootObjects);
@@ -102,52 +99,5 @@ class ONSPPropagationSerializationManager
         }
 
         Debug.Log("Successfully built " + fileNames.Count + " geometry objects");
-    }
-
-    private static void OnUnityPlayModeChanged()
-    {
-        var changedState = PlayModeState.Stopped;
-        switch (_currentState)
-        {
-            case PlayModeState.Stopped:
-                if (EditorApplication.isPlayingOrWillChangePlaymode)
-                {
-                    changedState = PlayModeState.Playing;
-                }
-                else if (EditorApplication.isPaused)
-                {
-                    changedState = PlayModeState.Paused;
-                }
-                break;
-            case PlayModeState.Playing:
-                if (EditorApplication.isPaused)
-                {
-                    changedState = PlayModeState.Paused;
-                }
-                else if (EditorApplication.isPlaying)
-                {
-                    changedState = PlayModeState.Playing;
-                }
-                else
-                {
-                    changedState = PlayModeState.Stopped;
-                }
-                break;
-            case PlayModeState.Paused:
-                if (EditorApplication.isPlayingOrWillChangePlaymode && !EditorApplication.isPaused)
-                {
-                    changedState = PlayModeState.Playing;
-                }
-                else if (EditorApplication.isPlayingOrWillChangePlaymode && EditorApplication.isPaused)
-                {
-                    changedState = PlayModeState.Paused;
-                }
-                break;
-            default:
-                return;
-        }
-
-        // Set current state.
-        _currentState = changedState;
     }
 }

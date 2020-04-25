@@ -121,7 +121,11 @@ public class OVRADBTool
 		{
 			string deviceName = deviceList[i];
 			int index = deviceName.IndexOf('\t');
-			deviceList[i] = deviceName.Substring(0, index);
+			if (index >= 0)
+				deviceList[i] = deviceName.Substring(0, index);
+			else
+				deviceList[i] = "";
+
 		}
 
 		return deviceList;

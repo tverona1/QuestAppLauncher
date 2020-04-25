@@ -14,6 +14,10 @@ ANY KIND, either express or implied. See the License for the specific language g
 permissions and limitations under the License.
 ************************************************************************************/
 
+#if USING_XR_MANAGEMENT && USING_XR_SDK_OCULUS
+#define USING_XR_SDK
+#endif
+
 using System;
 using System.Collections;
 using System.Collections.Generic;
@@ -120,13 +124,14 @@ public class OVRCameraRig : MonoBehaviour
 
 	protected virtual void Start()
 	{
-		UpdateAnchors();
+		UpdateAnchors(true, true);
+		Application.onBeforeRender += OnBeforeRenderCallback;
 	}
 
 	protected virtual void FixedUpdate()
 	{
 		if (useFixedUpdateForTracking)
-			UpdateAnchors();
+			UpdateAnchors(true, true);
 	}
 
 	protected virtual void Update()
@@ -134,11 +139,16 @@ public class OVRCameraRig : MonoBehaviour
 		_skipUpdate = false;
 
 		if (!useFixedUpdateForTracking)
-			UpdateAnchors();
+			UpdateAnchors(true, true);
+	}
+
+	protected virtual void OnDestroy()
+	{
+		Application.onBeforeRender -= OnBeforeRenderCallback;
 	}
 #endregion
 
-	protected virtual void UpdateAnchors()
+	protected virtual void UpdateAnchors(bool updateEyeAnchors, bool updateHandAnchors)
 	{
 		if (!OVRManager.OVRManagerinitialized)
 			return;
@@ -170,94 +180,116 @@ public class OVRCameraRig : MonoBehaviour
 		//If we don't, it could mean that tracking is lost, etc. so the pose should not change in the virtual world.
 		//This can be thought of as similar to calling InputTracking GetLocalPosition and Rotation, but only for doing so when the pose is valid.
 		//If false is returned for any of these calls, then a new pose is not valid and thus should not be updated.
-
-		if (hmdPresent)
+		if (updateEyeAnchors)
 		{
-			Vector3 centerEyePosition = Vector3.zero;
-			Quaternion centerEyeRotation = Quaternion.identity;
+			if (hmdPresent)
+			{
+				Vector3 centerEyePosition = Vector3.zero;
+				Quaternion centerEyeRotation = Quaternion.identity;
 
-			if (OVRNodeStateProperties.GetNodeStatePropertyVector3(Node.CenterEye, NodeStatePropertyType.Position, OVRPlugin.Node.EyeCenter, OVRPlugin.Step.Render, out centerEyePosition))
-				centerEyeAnchor.localPosition = centerEyePosition;
-			if (OVRNodeStateProperties.GetNodeStatePropertyQuaternion(Node.CenterEye, NodeStatePropertyType.Orientation, OVRPlugin.Node.EyeCenter, OVRPlugin.Step.Render, out centerEyeRotation))
-				centerEyeAnchor.localRotation = centerEyeRotation;
-		}
-		else
-		{
-			centerEyeAnchor.localRotation = emulatedRotation;
-			centerEyeAnchor.localPosition = OVRManager.instance.headPoseRelativeOffsetTranslation;
-		}
+				if (OVRNodeStateProperties.GetNodeStatePropertyVector3(Node.CenterEye, NodeStatePropertyType.Position, OVRPlugin.Node.EyeCenter, OVRPlugin.Step.Render, out centerEyePosition))
+					centerEyeAnchor.localPosition = centerEyePosition;
+				if (OVRNodeStateProperties.GetNodeStatePropertyQuaternion(Node.CenterEye, NodeStatePropertyType.Orientation, OVRPlugin.Node.EyeCenter, OVRPlugin.Step.Render, out centerEyeRotation))
+					centerEyeAnchor.localRotation = centerEyeRotation;
+			}
+			else
+			{
+				centerEyeAnchor.localRotation = emulatedRotation;
+				centerEyeAnchor.localPosition = OVRManager.instance.headPoseRelativeOffsetTranslation;
+			}
 
-		if (!hmdPresent || monoscopic)
-		{
-			leftEyeAnchor.localPosition = centerEyeAnchor.localPosition;
-			rightEyeAnchor.localPosition = centerEyeAnchor.localPosition;
-			leftEyeAnchor.localRotation = centerEyeAnchor.localRotation;
-			rightEyeAnchor.localRotation = centerEyeAnchor.localRotation;
-		}
-		else
-		{
-			Vector3 leftEyePosition = Vector3.zero;
-			Vector3 rightEyePosition = Vector3.zero;
-			Quaternion leftEyeRotation = Quaternion.identity;
-			Quaternion rightEyeRotation = Quaternion.identity;
+			if (!hmdPresent || monoscopic)
+			{
+				leftEyeAnchor.localPosition = centerEyeAnchor.localPosition;
+				rightEyeAnchor.localPosition = centerEyeAnchor.localPosition;
+				leftEyeAnchor.localRotation = centerEyeAnchor.localRotation;
+				rightEyeAnchor.localRotation = centerEyeAnchor.localRotation;
+			}
+			else
+			{
+				Vector3 leftEyePosition = Vector3.zero;
+				Vector3 rightEyePosition = Vector3.zero;
+				Quaternion leftEyeRotation = Quaternion.identity;
+				Quaternion rightEyeRotation = Quaternion.identity;
 
-			if (OVRNodeStateProperties.GetNodeStatePropertyVector3(Node.LeftEye, NodeStatePropertyType.Position, OVRPlugin.Node.EyeLeft, OVRPlugin.Step.Render, out leftEyePosition))
-				leftEyeAnchor.localPosition = leftEyePosition;
-			if (OVRNodeStateProperties.GetNodeStatePropertyVector3(Node.RightEye, NodeStatePropertyType.Position, OVRPlugin.Node.EyeRight, OVRPlugin.Step.Render, out rightEyePosition))
-				rightEyeAnchor.localPosition = rightEyePosition;
-			if (OVRNodeStateProperties.GetNodeStatePropertyQuaternion(Node.LeftEye, NodeStatePropertyType.Orientation, OVRPlugin.Node.EyeLeft, OVRPlugin.Step.Render, out leftEyeRotation))
-				leftEyeAnchor.localRotation = leftEyeRotation;
-			if (OVRNodeStateProperties.GetNodeStatePropertyQuaternion(Node.RightEye, NodeStatePropertyType.Orientation, OVRPlugin.Node.EyeRight, OVRPlugin.Step.Render, out rightEyeRotation))
-				rightEyeAnchor.localRotation = rightEyeRotation;
-		}
-
-		//Need this for controller offset because if we're on OpenVR, we want to set the local poses as specified by Unity, but if we're not, OVRInput local position is the right anchor
-		if (OVRManager.loadedXRDevice == OVRManager.XRDevice.OpenVR)
-		{
-			Vector3 leftPos = Vector3.zero;
-			Vector3 rightPos = Vector3.zero;
-			Quaternion leftQuat = Quaternion.identity;
-			Quaternion rightQuat = Quaternion.identity;
-
-			if (OVRNodeStateProperties.GetNodeStatePropertyVector3(Node.LeftHand, NodeStatePropertyType.Position, OVRPlugin.Node.HandLeft, OVRPlugin.Step.Render, out leftPos))
-				leftHandAnchor.localPosition = leftPos;
-			if (OVRNodeStateProperties.GetNodeStatePropertyVector3(Node.RightHand, NodeStatePropertyType.Position, OVRPlugin.Node.HandRight, OVRPlugin.Step.Render, out rightPos))
-				rightHandAnchor.localPosition = rightPos;
-			if (OVRNodeStateProperties.GetNodeStatePropertyQuaternion(Node.LeftHand, NodeStatePropertyType.Orientation, OVRPlugin.Node.HandLeft, OVRPlugin.Step.Render, out leftQuat))
-				leftHandAnchor.localRotation = leftQuat;
-			if (OVRNodeStateProperties.GetNodeStatePropertyQuaternion(Node.RightHand, NodeStatePropertyType.Orientation, OVRPlugin.Node.HandRight, OVRPlugin.Step.Render, out rightQuat))
-				rightHandAnchor.localRotation = rightQuat;
-
-		}
-		else
-		{
-			leftHandAnchor.localPosition = OVRInput.GetLocalControllerPosition(OVRInput.Controller.LTouch);
-			rightHandAnchor.localPosition = OVRInput.GetLocalControllerPosition(OVRInput.Controller.RTouch);
-			leftHandAnchor.localRotation = OVRInput.GetLocalControllerRotation(OVRInput.Controller.LTouch);
-			rightHandAnchor.localRotation = OVRInput.GetLocalControllerRotation(OVRInput.Controller.RTouch);
+				if (OVRNodeStateProperties.GetNodeStatePropertyVector3(Node.LeftEye, NodeStatePropertyType.Position, OVRPlugin.Node.EyeLeft, OVRPlugin.Step.Render, out leftEyePosition))
+					leftEyeAnchor.localPosition = leftEyePosition;
+				if (OVRNodeStateProperties.GetNodeStatePropertyVector3(Node.RightEye, NodeStatePropertyType.Position, OVRPlugin.Node.EyeRight, OVRPlugin.Step.Render, out rightEyePosition))
+					rightEyeAnchor.localPosition = rightEyePosition;
+				if (OVRNodeStateProperties.GetNodeStatePropertyQuaternion(Node.LeftEye, NodeStatePropertyType.Orientation, OVRPlugin.Node.EyeLeft, OVRPlugin.Step.Render, out leftEyeRotation))
+					leftEyeAnchor.localRotation = leftEyeRotation;
+				if (OVRNodeStateProperties.GetNodeStatePropertyQuaternion(Node.RightEye, NodeStatePropertyType.Orientation, OVRPlugin.Node.EyeRight, OVRPlugin.Step.Render, out rightEyeRotation))
+					rightEyeAnchor.localRotation = rightEyeRotation;
+			}
 		}
 
-		trackerAnchor.localPosition = tracker.position;
-
-		OVRPose leftOffsetPose = OVRPose.identity;
-		OVRPose rightOffsetPose = OVRPose.identity;
-		if (OVRManager.loadedXRDevice == OVRManager.XRDevice.OpenVR)
+		if (updateHandAnchors)
 		{
-			leftOffsetPose = OVRManager.GetOpenVRControllerOffset(Node.LeftHand);
-			rightOffsetPose = OVRManager.GetOpenVRControllerOffset(Node.RightHand);
+			//Need this for controller offset because if we're on OpenVR, we want to set the local poses as specified by Unity, but if we're not, OVRInput local position is the right anchor
+			if (OVRManager.loadedXRDevice == OVRManager.XRDevice.OpenVR)
+			{
+				Vector3 leftPos = Vector3.zero;
+				Vector3 rightPos = Vector3.zero;
+				Quaternion leftQuat = Quaternion.identity;
+				Quaternion rightQuat = Quaternion.identity;
 
-			//Sets poses of left and right nodes, local to the tracking space.
-			OVRManager.SetOpenVRLocalPose(trackingSpace.InverseTransformPoint(leftControllerAnchor.position),
-				trackingSpace.InverseTransformPoint(rightControllerAnchor.position),
-				Quaternion.Inverse(trackingSpace.rotation) * leftControllerAnchor.rotation,
-				Quaternion.Inverse(trackingSpace.rotation) * rightControllerAnchor.rotation);
+				if (OVRNodeStateProperties.GetNodeStatePropertyVector3(Node.LeftHand, NodeStatePropertyType.Position, OVRPlugin.Node.HandLeft, OVRPlugin.Step.Render, out leftPos))
+					leftHandAnchor.localPosition = leftPos;
+				if (OVRNodeStateProperties.GetNodeStatePropertyVector3(Node.RightHand, NodeStatePropertyType.Position, OVRPlugin.Node.HandRight, OVRPlugin.Step.Render, out rightPos))
+					rightHandAnchor.localPosition = rightPos;
+				if (OVRNodeStateProperties.GetNodeStatePropertyQuaternion(Node.LeftHand, NodeStatePropertyType.Orientation, OVRPlugin.Node.HandLeft, OVRPlugin.Step.Render, out leftQuat))
+					leftHandAnchor.localRotation = leftQuat;
+				if (OVRNodeStateProperties.GetNodeStatePropertyQuaternion(Node.RightHand, NodeStatePropertyType.Orientation, OVRPlugin.Node.HandRight, OVRPlugin.Step.Render, out rightQuat))
+					rightHandAnchor.localRotation = rightQuat;
+
+			}
+			else
+			{
+				leftHandAnchor.localPosition = OVRInput.GetLocalControllerPosition(OVRInput.Controller.LTouch);
+				rightHandAnchor.localPosition = OVRInput.GetLocalControllerPosition(OVRInput.Controller.RTouch);
+				leftHandAnchor.localRotation = OVRInput.GetLocalControllerRotation(OVRInput.Controller.LTouch);
+				rightHandAnchor.localRotation = OVRInput.GetLocalControllerRotation(OVRInput.Controller.RTouch);
+			}
+
+			trackerAnchor.localPosition = tracker.position;
+
+			OVRPose leftOffsetPose = OVRPose.identity;
+			OVRPose rightOffsetPose = OVRPose.identity;
+			if (OVRManager.loadedXRDevice == OVRManager.XRDevice.OpenVR)
+			{
+				leftOffsetPose = OVRManager.GetOpenVRControllerOffset(Node.LeftHand);
+				rightOffsetPose = OVRManager.GetOpenVRControllerOffset(Node.RightHand);
+
+				//Sets poses of left and right nodes, local to the tracking space.
+				OVRManager.SetOpenVRLocalPose(trackingSpace.InverseTransformPoint(leftControllerAnchor.position),
+					trackingSpace.InverseTransformPoint(rightControllerAnchor.position),
+					Quaternion.Inverse(trackingSpace.rotation) * leftControllerAnchor.rotation,
+					Quaternion.Inverse(trackingSpace.rotation) * rightControllerAnchor.rotation);
+			}
+			rightControllerAnchor.localPosition = rightOffsetPose.position;
+			rightControllerAnchor.localRotation = rightOffsetPose.orientation;
+			leftControllerAnchor.localPosition = leftOffsetPose.position;
+			leftControllerAnchor.localRotation = leftOffsetPose.orientation;
 		}
-		rightControllerAnchor.localPosition = rightOffsetPose.position;
-		rightControllerAnchor.localRotation = rightOffsetPose.orientation;
-		leftControllerAnchor.localPosition = leftOffsetPose.position;
-		leftControllerAnchor.localRotation = leftOffsetPose.orientation;
 
 		RaiseUpdatedAnchorsEvent();
+	}
+
+	protected virtual void OnBeforeRenderCallback()
+	{
+		if (OVRManager.loadedXRDevice == OVRManager.XRDevice.Oculus)			//Restrict late-update to only Oculus devices
+		{
+			bool controllersNeedUpdate = OVRManager.instance.LateControllerUpdate;
+#if USING_XR_SDK
+			//For the XR SDK, we need to late update head pose, not just the controllers, because the functionality
+			//is no longer built-in to the Engine. Under legacy, late camera update is done by default. In the XR SDK, you must use
+			//Tracked Pose Driver to get this by default, which we do not use. So, we have to manually late update camera poses.
+			UpdateAnchors(true, controllersNeedUpdate);
+#else
+			if (controllersNeedUpdate)
+				UpdateAnchors(false, true);
+#endif
+		}
 	}
 
 	protected virtual void RaiseUpdatedAnchorsEvent()

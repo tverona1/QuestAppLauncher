@@ -114,6 +114,9 @@ public class OVROverlay : MonoBehaviour
 	//Warning: Developers should only use this supersample setting if they absolutely have the budget and need for it. It is extremely expensive, and will not be relevant for most developers.
 	public bool useExpensiveSuperSample = false;
 
+	//Property that can hide overlays when required. Should be false when present, true when hidden.
+	public bool hidden = false;
+
 	/// <summary>
 	/// If true, the layer will be created as an external surface. externalSurfaceObject contains the Surface object. It's effective only on Android.
 	/// </summary>
@@ -143,6 +146,9 @@ public class OVROverlay : MonoBehaviour
 	/// </summary>
 	[Tooltip("The noDepthBufferTesting will stop layer's depth buffer compositing even if the engine has \"Shared Depth Buffer\" enabled")]
 	public bool noDepthBufferTesting = false;
+
+	//Format corresponding to the source texture for this layer. sRGB by default, but can be modified if necessary
+	public OVRPlugin.EyeTextureFormat layerTextureFormat = OVRPlugin.EyeTextureFormat.R8G8B8A8_sRGB;
 
 	/// <summary>
 	/// Specify overlay's shape
@@ -199,7 +205,7 @@ public class OVROverlay : MonoBehaviour
 	protected bool isOverridePending;
 
 	internal const int maxInstances = 15;
-	internal static OVROverlay[] instances = new OVROverlay[maxInstances];
+	public static OVROverlay[] instances = new OVROverlay[maxInstances];
 
 #endregion
 
@@ -390,7 +396,7 @@ public class OVROverlay : MonoBehaviour
 		if (layerIndex != -1)
 		{
 			// Turn off the overlay if it was on.
-			OVRPlugin.EnqueueSubmitLayer(true, false, false, IntPtr.Zero, IntPtr.Zero, -1, 0, OVRPose.identity.ToPosef(), Vector3.one.ToVector3f(), layerIndex, (OVRPlugin.OverlayShape)prevOverlayShape);
+			OVRPlugin.EnqueueSubmitLayer(true, false, false, IntPtr.Zero, IntPtr.Zero, -1, 0, OVRPose.identity.ToPosef_Legacy(), Vector3.one.ToVector3f(), layerIndex, (OVRPlugin.OverlayShape)prevOverlayShape);
 			instances[layerIndex] = null;
 			layerIndex = -1;
 		}
@@ -518,7 +524,7 @@ public class OVROverlay : MonoBehaviour
 		}
 
 		OVRPlugin.LayerDesc newDesc = new OVRPlugin.LayerDesc() {
-			Format = OVRPlugin.EyeTextureFormat.R8G8B8A8_sRGB,
+			Format = layerTextureFormat,
 			LayerFlags = isExternalSurface ? 0 : (int)OVRPlugin.LayerFlags.TextureOriginAtBottomLeft,
 			Layout = layout,
 			MipLevels = 1,
@@ -666,8 +672,9 @@ public class OVROverlay : MonoBehaviour
 		bool isOverlayVisible = OVRPlugin.EnqueueSubmitLayer(overlay, headLocked, noDepthBufferTesting,
 			isExternalSurface ? System.IntPtr.Zero : layerTextures[0].appTexturePtr,
 			isExternalSurface ? System.IntPtr.Zero : layerTextures[rightEyeIndex].appTexturePtr,
-			layerId, frameIndex, pose.flipZ().ToPosef(), scale.ToVector3f(), layerIndex, (OVRPlugin.OverlayShape)currentOverlayShape,
-			overrideTextureRectMatrix, textureRectMatrix, overridePerLayerColorScaleAndOffset, colorScale, colorOffset, useExpensiveSuperSample);
+			layerId, frameIndex, pose.flipZ().ToPosef_Legacy(), scale.ToVector3f(), layerIndex, (OVRPlugin.OverlayShape)currentOverlayShape,
+			overrideTextureRectMatrix, textureRectMatrix, overridePerLayerColorScaleAndOffset, colorScale, colorOffset, useExpensiveSuperSample,
+			hidden);
 
 		prevOverlayShape = currentOverlayShape;
 

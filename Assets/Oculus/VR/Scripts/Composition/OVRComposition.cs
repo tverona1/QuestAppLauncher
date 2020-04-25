@@ -30,19 +30,12 @@ public abstract class OVRComposition {
 
 	protected OVRComposition(GameObject parentObject, Camera mainCamera)
 	{
-		OVRCameraRig cameraRig = mainCamera.GetComponentInParent<OVRCameraRig>();
-		if (cameraRig == null)
-		{
-			cameraRig = parentObject.GetComponent<OVRCameraRig>();
-		}
-		cameraInTrackingSpace = (cameraRig != null && cameraRig.trackingSpace != null);
-		this.cameraRig = cameraRig;
-		Debug.Log(cameraRig == null ? "[OVRComposition] CameraRig not found" : "[OVRComposition] CameraRig found");
+        RefreshCameraRig(parentObject, mainCamera);
 	}
 
 	public abstract OVRManager.CompositionMethod CompositionMethod();
 
-	public abstract void Update(Camera mainCamera);
+	public abstract void Update(GameObject gameObject, Camera mainCamera);
 	public abstract void Cleanup();
 
 	public virtual void RecenterPose() { }
@@ -50,7 +43,19 @@ public abstract class OVRComposition {
 	protected bool usingLastAttachedNodePose = false;
 	protected OVRPose lastAttachedNodePose = new OVRPose();            // Sometimes the attach node pose is not readable (lose tracking, low battery, etc.) Use the last pose instead when it happens
 
-	public OVRPose ComputeCameraWorldSpacePose(OVRPlugin.CameraExtrinsics extrinsics, OVRPlugin.Posef calibrationRawPose)
+    public void RefreshCameraRig(GameObject parentObject, Camera mainCamera)
+    {
+        OVRCameraRig cameraRig = mainCamera.GetComponentInParent<OVRCameraRig>();
+        if (cameraRig == null)
+        {
+            cameraRig = parentObject.GetComponent<OVRCameraRig>();
+        }
+        cameraInTrackingSpace = (cameraRig != null && cameraRig.trackingSpace != null);
+        this.cameraRig = cameraRig;
+        Debug.Log(cameraRig == null ? "[OVRComposition] CameraRig not found" : "[OVRComposition] CameraRig found");
+    }
+
+    public OVRPose ComputeCameraWorldSpacePose(OVRPlugin.CameraExtrinsics extrinsics, OVRPlugin.Posef calibrationRawPose)
 	{
 		OVRPose trackingSpacePose = ComputeCameraTrackingSpacePose(extrinsics, calibrationRawPose);
 		OVRPose worldSpacePose = OVRExtensions.ToWorldSpacePose(trackingSpacePose);

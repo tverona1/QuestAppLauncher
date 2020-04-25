@@ -4,6 +4,7 @@ namespace Oculus.Platform
   using System.IO;
   using UnityEditor;
   using UnityEngine;
+  using UnityEngine.Networking;
 
   // This classes implements a UI to edit the PlatformSettings class.
   // The UI is accessible from a the menu bar via: Oculus Platform -> Edit Settings
@@ -13,7 +14,7 @@ namespace Oculus.Platform
     private bool isUnityEditorSettingsExpanded;
     private bool isBuildSettingsExpanded;
 
-    private WWW getAccessTokenRequest;
+    private UnityWebRequest getAccessTokenRequest;
 
     private void OnEnable()
     {
@@ -77,7 +78,7 @@ namespace Oculus.Platform
           bool HasTestAccessToken = !String.IsNullOrEmpty(StandalonePlatformSettings.OculusPlatformTestUserAccessToken);
           if (PlatformSettings.UseStandalonePlatform)
           {
-            if (!HasTestAccessToken && 
+            if (!HasTestAccessToken &&
             (String.IsNullOrEmpty(StandalonePlatformSettings.OculusPlatformTestUserEmail) ||
             String.IsNullOrEmpty(StandalonePlatformSettings.OculusPlatformTestUserPassword)))
             {
@@ -124,13 +125,13 @@ namespace Oculus.Platform
             if (GUILayout.Button(loginLabel))
             {
               WWWForm form = new WWWForm();
-              var headers = form.headers;
-              headers.Add("Authorization", "Bearer OC|1141595335965881|");
               form.AddField("email", StandalonePlatformSettings.OculusPlatformTestUserEmail);
               form.AddField("password", StandalonePlatformSettings.OculusPlatformTestUserPassword);
 
               // Start the WWW request to get the access token
-              getAccessTokenRequest = new WWW("https://graph.oculus.com/login", form.data, headers);
+              getAccessTokenRequest = UnityWebRequest.Post("https://graph.oculus.com/login", form);
+              getAccessTokenRequest.SetRequestHeader("Authorization", "Bearer OC|1141595335965881|");
+              getAccessTokenRequest.SendWebRequest();
               EditorApplication.update += GetAccessToken;
             }
             GUI.enabled = true;
@@ -187,32 +188,18 @@ namespace Oculus.Platform
 #endif
           if (!canEnableARM64Support)
           {
-            EditorGUILayout.HelpBox("ARM64 support requires Unity 2018.1.x or higher.", MessageType.Info);
-            if (PlatformSettings.EnableARM64Support)
+            var msg = "Update your Unity Editor to 2018.1.x or newer to enable Arm64 support";
+            EditorGUILayout.HelpBox(msg, MessageType.Warning);
+            if (IsArm64PluginPlatformEnabled())
             {
-              PlatformSettings.EnableARM64Support = false;
               DisablePluginPlatform(PluginPlatform.Android64);
             }
           }
-
-          GUI.enabled = canEnableARM64Support;
-
-          var enableARM64Label = "Enable ARM64 Support [?]";
-          var enableARM64Hint = "[Experimental] If this is checked, Oculus Platform SDK support for ARM64 mobile devices will be enabled."
-      + " Support for ARM64 must also be correctly configured in the Unity Player Settings to use this feature. Requires Unity 2018.1.x or higher.";
-      bool prevEnableARM64Support = PlatformSettings.EnableARM64Support;
-          PlatformSettings.EnableARM64Support =
-            MakeToggle(new GUIContent(enableARM64Label, enableARM64Hint), PlatformSettings.EnableARM64Support);
-
-          if (prevEnableARM64Support != PlatformSettings.EnableARM64Support)
+          else
           {
-            if (PlatformSettings.EnableARM64Support)
+            if (!IsArm64PluginPlatformEnabled())
             {
               EnablePluginPlatform(PluginPlatform.Android64);
-            }
-            else
-            {
-              DisablePluginPlatform(PluginPlatform.Android64);
             }
           }
 
@@ -232,12 +219,13 @@ namespace Oculus.Platform
 
         if (String.IsNullOrEmpty(getAccessTokenRequest.error))
         {
-          var Response = JsonUtility.FromJson<OculusStandalonePlatformResponse>(getAccessTokenRequest.text);
+          var Response = JsonUtility.FromJson<OculusStandalonePlatformResponse>(getAccessTokenRequest.downloadHandler.text);
           StandalonePlatformSettings.OculusPlatformTestUserAccessToken = Response.access_token;
         }
 
         GUI.changed = true;
         EditorApplication.update -= GetAccessToken;
+        getAccessTokenRequest.Dispose();
         getAccessTokenRequest = null;
       }
     }
@@ -360,9 +348,11 @@ namespace Oculus.Platform
         pi.SetCompatibleWithPlatform(BuildTarget.Android, false);
         pi.SetCompatibleWithPlatform(BuildTarget.StandaloneWindows, false);
         pi.SetCompatibleWithPlatform(BuildTarget.StandaloneWindows64, false);
-        pi.SetCompatibleWithPlatform(BuildTarget.StandaloneLinux, false);
         pi.SetCompatibleWithPlatform(BuildTarget.StandaloneLinux64, false);
+#if !UNITY_2019_2_OR_NEWER
+        pi.SetCompatibleWithPlatform(BuildTarget.StandaloneLinux, false);
         pi.SetCompatibleWithPlatform(BuildTarget.StandaloneLinuxUniversal, false);
+#endif
 #if UNITY_2017_3_OR_NEWER
         pi.SetCompatibleWithPlatform(BuildTarget.StandaloneOSX, false);
 #else
@@ -390,6 +380,13 @@ namespace Oculus.Platform
         AssetDatabase.Refresh();
         AssetDatabase.SaveAssets();
       }
+    }
+
+    public static bool IsArm64PluginPlatformEnabled()
+    {
+      string path = GetPlatformPluginPath(PluginPlatform.Android64);
+      bool pathAlreadyExists = Directory.Exists(path) || File.Exists(path);
+      return pathAlreadyExists;
     }
 
     public static void EnablePluginPlatform(PluginPlatform platform)
