@@ -55,7 +55,7 @@ namespace UnityEngine.EventSystems
             get { return (eventCamera != null) ? (int)eventCamera.depth : 0xFFFFFF; }
         }
 
-        public int sortOrder = 20;
+        public int sortOrder = 0;
         public override int sortOrderPriority
         {
             get

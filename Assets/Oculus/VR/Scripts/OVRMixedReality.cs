@@ -107,20 +107,13 @@ internal static class OVRMixedReality
 				currentComposition = new OVRDirectComposition(parentObject, mainCamera, cameraDevice, useDynamicLighting, depthQuality);
 			}
 		}
-		else if (compositionMethod == OVRManager.CompositionMethod.Sandwich)
-		{
-			if (currentComposition == null)
-			{
-				currentComposition = new OVRSandwichComposition(parentObject, mainCamera, cameraDevice, useDynamicLighting, depthQuality);
-			}
-		}
 #endif
 		else
 		{
 			Debug.LogError("Unknown CompositionMethod : " + compositionMethod);
 			return;
 		}
-		currentComposition.Update(mainCamera);
+		currentComposition.Update(parentObject, mainCamera);
 	}
 
 	public static void Cleanup()

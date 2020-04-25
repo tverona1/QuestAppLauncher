@@ -14,17 +14,22 @@ ANY KIND, either express or implied. See the License for the specific language g
 permissions and limitations under the License.
 ************************************************************************************/
 
+#if UNITY_ANDROID && !UNITY_EDITOR
+#define OVR_ANDROID_MRC
+#endif
+
 using UnityEngine;
 using System;
 using System.IO;
 
-#if UNITY_EDITOR_WIN || UNITY_STANDALONE_WIN
+#if UNITY_EDITOR_WIN || UNITY_STANDALONE_WIN || OVR_ANDROID_MRC
 public class OVRMixedRealityCaptureSettings : ScriptableObject
 {
 	public bool enableMixedReality = false;
 	public LayerMask extraHiddenLayers;
 	public OVRManager.CompositionMethod compositionMethod = OVRManager.CompositionMethod.External;
-	public Color externalCompositionBackdropColor = Color.clear;
+	public Color externalCompositionBackdropColorRift = Color.green;
+	public Color externalCompositionBackdropColorQuest = Color.clear;
 	public OVRManager.CameraDevice capturingCameraDevice = OVRManager.CameraDevice.WebCamera0;
 	public bool flipCameraFrameHorizontally = false;
 	public bool flipCameraFrameVertically = false;
@@ -50,7 +55,8 @@ public class OVRMixedRealityCaptureSettings : ScriptableObject
 		enableMixedReality = manager.enableMixedReality;
 		compositionMethod = manager.compositionMethod;
 		extraHiddenLayers = manager.extraHiddenLayers;
-		externalCompositionBackdropColor = manager.externalCompositionBackdropColor;
+		externalCompositionBackdropColorRift = manager.externalCompositionBackdropColorRift;
+		externalCompositionBackdropColorQuest = manager.externalCompositionBackdropColorQuest;
 		capturingCameraDevice = manager.capturingCameraDevice;
 		flipCameraFrameHorizontally = manager.flipCameraFrameHorizontally;
 		flipCameraFrameVertically = manager.flipCameraFrameVertically;
@@ -76,7 +82,8 @@ public class OVRMixedRealityCaptureSettings : ScriptableObject
 		manager.enableMixedReality = enableMixedReality;
 		manager.compositionMethod = compositionMethod;
 		manager.extraHiddenLayers = extraHiddenLayers;
-		manager.externalCompositionBackdropColor = externalCompositionBackdropColor;
+		manager.externalCompositionBackdropColorRift = externalCompositionBackdropColorRift;
+		manager.externalCompositionBackdropColorQuest = externalCompositionBackdropColorQuest;
 		manager.capturingCameraDevice = capturingCameraDevice;
 		manager.flipCameraFrameHorizontally = flipCameraFrameHorizontally;
 		manager.flipCameraFrameVertically = flipCameraFrameVertically;
@@ -98,7 +105,8 @@ public class OVRMixedRealityCaptureSettings : ScriptableObject
 		manager.virtualGreenScreenDepthTolerance = virtualGreenScreenDepthTolerance;
 	}
 
-	const string configFileName = "mrc.config";
+#if UNITY_EDITOR_WIN || UNITY_STANDALONE_WIN        // Rift MRC only
+    const string configFileName = "mrc.config";
 	public void WriteToConfigurationFile()
 	{
 		string text = JsonUtility.ToJson(this, true);
@@ -136,5 +144,6 @@ public class OVRMixedRealityCaptureSettings : ScriptableObject
 			Debug.LogWarning("Exception caught " + e.Message);
 		}
 	}
+#endif
 }
 #endif

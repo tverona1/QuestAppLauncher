@@ -20,7 +20,9 @@ namespace Oculus.Platform
       Cal_FinalizeApplication                       = 0x1DA9CBD5,
       Cal_GetSuggestedApplications                  = 0x56707015,
       Cal_ProposeApplication                        = 0x4E83F2DD,
-      CloudStorage2_GetUserDirectoryPath            = 0x76A42EEE,
+      Colocation_GetCurrentMapUuid                  = 0x34557EB2,
+      Colocation_RequestMap                         = 0x3215666D,
+      Colocation_ShareMap                           = 0x186DC4DD,
       GraphAPI_Get                                  = 0x30FF006E,
       GraphAPI_Post                                 = 0x76A5A7C4,
       HTTP_Get                                      = 0x6FB63223,
@@ -34,6 +36,16 @@ namespace Oculus.Platform
       Livestreaming_StopStream                      = 0x44E40DCA,
       Livestreaming_UpdateCommentsOverlayVisibility = 0x1F7D8034,
       Livestreaming_UpdateMicStatus                 = 0x1C577D87,
+      NetSync_Connect                               = 0x646D855F,
+      NetSync_Disconnect                            = 0x1569FEB5,
+      NetSync_GetSessions                           = 0x6ED60A35,
+      NetSync_GetVoipAttenuation                    = 0x112ACA17,
+      NetSync_GetVoipAttenuationDefault             = 0x577BA8A0,
+      NetSync_SetVoipAttenuation                    = 0x3497D7F6,
+      NetSync_SetVoipGroup                          = 0x58129C8E,
+      NetSync_SetVoipMicSource                      = 0x3302F770,
+      NetSync_SetVoipSessionMuted                   = 0x5585FF0A,
+      NetSync_SetVoipStreamMode                     = 0x67E19D37,
       Party_Create                                  = 0x1AD31B4F,
       Party_GatherInApplication                     = 0x7287C183,
       Party_Get                                     = 0x5E8953BD,
@@ -84,8 +96,13 @@ namespace Oculus.Platform
 
         case MessageTypeInternal.Application_ExecuteCoordinatedLaunch:
         case MessageTypeInternal.Cal_ProposeApplication:
+        case MessageTypeInternal.Colocation_RequestMap:
+        case MessageTypeInternal.Colocation_ShareMap:
         case MessageTypeInternal.Livestreaming_StopPartyStream:
         case MessageTypeInternal.Livestreaming_UpdateMicStatus:
+        case MessageTypeInternal.NetSync_SetVoipAttenuation:
+        case MessageTypeInternal.NetSync_SetVoipGroup:
+        case MessageTypeInternal.NetSync_SetVoipMicSource:
         case MessageTypeInternal.Party_Leave:
         case MessageTypeInternal.User_CancelRecordingForReportFlow:
         case MessageTypeInternal.User_TestUserCreateDeviceManifest:
@@ -129,6 +146,25 @@ namespace Oculus.Platform
           message = new MessageWithLivestreamingVideoStats(messageHandle);
           break;
 
+        case MessageTypeInternal.NetSync_Connect:
+        case MessageTypeInternal.NetSync_Disconnect:
+          message = new MessageWithNetSyncConnection(messageHandle);
+          break;
+
+        case MessageTypeInternal.NetSync_GetSessions:
+          message = new MessageWithNetSyncSessionList(messageHandle);
+          break;
+
+        case MessageTypeInternal.NetSync_SetVoipSessionMuted:
+        case MessageTypeInternal.NetSync_SetVoipStreamMode:
+          message = new MessageWithNetSyncSetSessionPropertyResult(messageHandle);
+          break;
+
+        case MessageTypeInternal.NetSync_GetVoipAttenuation:
+        case MessageTypeInternal.NetSync_GetVoipAttenuationDefault:
+          message = new MessageWithNetSyncVoipAttenuationValueList(messageHandle);
+          break;
+
         case MessageTypeInternal.Party_Get:
           message = new MessageWithParty(messageHandle);
           break;
@@ -154,7 +190,7 @@ namespace Oculus.Platform
           break;
 
         case MessageTypeInternal.Avatar_UpdateMetaData:
-        case MessageTypeInternal.CloudStorage2_GetUserDirectoryPath:
+        case MessageTypeInternal.Colocation_GetCurrentMapUuid:
         case MessageTypeInternal.GraphAPI_Get:
         case MessageTypeInternal.GraphAPI_Post:
         case MessageTypeInternal.HTTP_Get:
@@ -193,5 +229,39 @@ namespace Oculus.Platform
       }
     }
 
+    public static Request<Models.PlatformInitialize> InitializeStandaloneAsync(ulong appID, string accessToken)
+    {
+      var platform = new StandalonePlatform();
+      var initRequest = platform.AsyncInitialize(appID, accessToken);
+
+      if (initRequest == null)
+      {
+        throw new UnityException("Oculus Platform failed to initialize.");
+      }
+
+      // This function is not named well.  Actually means that we have called platform init.
+      // Async initialization may not have finished at this point.
+      Platform.Core.ForceInitialized();
+      (new GameObject("Oculus.Platform.CallbackRunner")).AddComponent<CallbackRunner>();
+      return initRequest;
+    }
+
+    public static class Users
+    {
+      public static Request<Models.LinkedAccountList> GetLinkedAccounts(ServiceProvider[] providers)
+      {
+        if (Core.IsInitialized())
+        {
+          UserOptions userOpts = new UserOptions();
+          foreach (ServiceProvider provider in providers)
+          {
+            userOpts.AddServiceProvider(provider);
+          }
+          return new Request<Models.LinkedAccountList>(CAPI.ovr_User_GetLinkedAccounts((IntPtr)userOpts));
+        }
+
+        return null;
+      }
+    }
   }
 }

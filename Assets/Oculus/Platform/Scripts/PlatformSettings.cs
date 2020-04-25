@@ -26,12 +26,6 @@ namespace Oculus.Platform
       set { Instance.ovrUseStandalonePlatform = value; }
     }
 
-    public static bool EnableARM64Support
-    {
-      get { return Instance.ovrEnableARM64Support; }
-      set { Instance.ovrEnableARM64Support = value; }
-    }
-
     [SerializeField]
     private string ovrAppID = "";
 
@@ -45,10 +39,7 @@ namespace Oculus.Platform
     [SerializeField]
     private bool ovrUseStandalonePlatform = true;
 #endif
-
-    [SerializeField]
-    private bool ovrEnableARM64Support = false;
-
+    
     private static PlatformSettings instance;
     public static PlatformSettings Instance
     {

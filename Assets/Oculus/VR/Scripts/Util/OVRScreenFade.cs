@@ -44,8 +44,17 @@ public class OVRScreenFade : MonoBehaviour
 
     public float currentAlpha { get; private set; }
 
-	void Awake()
+	/// <summary>
+	/// Automatically starts a fade in
+	/// </summary>
+	void Start()
 	{
+		if (gameObject.name.StartsWith("OculusMRC_"))
+		{
+			Destroy(this);
+			return;
+		}
+
 		// create the fade material
 		fadeMaterial = new Material(Shader.Find("Oculus/Unlit Transparent Color"));
 		fadeMesh = gameObject.AddComponent<MeshFilter>();
@@ -98,12 +107,17 @@ public class OVRScreenFade : MonoBehaviour
 		mesh.uv = uv;
 
 		SetFadeLevel(0);
+
+		if (fadeOnStart)
+		{
+			StartCoroutine(Fade(1, 0));
+		}
 	}
 
-    /// <summary>
-    /// Start a fade out
-    /// </summary>
-    public void FadeOut()
+	/// <summary>
+	/// Start a fade out
+	/// </summary>
+	public void FadeOut()
     {
         StartCoroutine(Fade(0,1));
     }
@@ -116,17 +130,6 @@ public class OVRScreenFade : MonoBehaviour
 	{
 		StartCoroutine(Fade(1,0));
 	}
-
-    /// <summary>
-    /// Automatically starts a fade in
-    /// </summary>
-    void Start()
-    {
-        if (fadeOnStart)
-        {
-            StartCoroutine(Fade(1,0));
-        }
-    }
 
 	void OnEnable()
 	{

@@ -26,11 +26,11 @@ using System.Threading;
 
 public class OVRExternalComposition : OVRComposition
 {
-	public GameObject foregroundCameraGameObject;
-	public Camera foregroundCamera;
-	public GameObject backgroundCameraGameObject;
-	public Camera backgroundCamera;
-	public GameObject cameraProxyPlane;
+	private GameObject previousMainCameraObject = null;
+	public GameObject foregroundCameraGameObject = null;
+	public Camera foregroundCamera = null;
+	public GameObject backgroundCameraGameObject = null;
+	public Camera backgroundCamera = null;
 #if OVR_ANDROID_MRC
 	public AudioListener audioListener;
 	public OVRMRAudioFilter audioFilter;
@@ -58,57 +58,74 @@ public class OVRExternalComposition : OVRComposition
 		frameIndex = 0;
 		lastMrcEncodeFrameSyncId = -1;
 #endif
+		RefreshCameraObjects(parentObject, mainCamera);
+	}
 
-		Debug.Assert(backgroundCameraGameObject == null);
-		backgroundCameraGameObject = new GameObject();
-		backgroundCameraGameObject.name = "MRBackgroundCamera";
-		backgroundCameraGameObject.transform.parent = cameraInTrackingSpace ? cameraRig.trackingSpace : parentObject.transform;
-		backgroundCamera = backgroundCameraGameObject.AddComponent<Camera>();
-		backgroundCamera.stereoTargetEye = StereoTargetEyeMask.None;
-		backgroundCamera.depth = 99990.0f;
-		backgroundCamera.rect = new Rect(0.0f, 0.0f, 0.5f, 1.0f);
-		backgroundCamera.clearFlags = mainCamera.clearFlags;
-		backgroundCamera.backgroundColor = mainCamera.backgroundColor;
-		backgroundCamera.cullingMask = mainCamera.cullingMask & (~OVRManager.instance.extraHiddenLayers);
-		backgroundCamera.nearClipPlane = mainCamera.nearClipPlane;
-		backgroundCamera.farClipPlane = mainCamera.farClipPlane;
+	private void RefreshCameraObjects(GameObject parentObject, Camera mainCamera)
+	{
+		if (mainCamera.gameObject != previousMainCameraObject)
+		{
+			Debug.LogFormat("[OVRExternalComposition] Camera refreshed. Rebind camera to {0}", mainCamera.gameObject.name);
+
+			OVRCompositionUtil.SafeDestroy(ref backgroundCameraGameObject);
+			backgroundCamera = null;
+			OVRCompositionUtil.SafeDestroy(ref foregroundCameraGameObject);
+			foregroundCamera = null;
+
+			RefreshCameraRig(parentObject, mainCamera);
+
+			Debug.Assert(backgroundCameraGameObject == null);
+			backgroundCameraGameObject = Object.Instantiate(mainCamera.gameObject);
+			backgroundCameraGameObject.name = "OculusMRC_BackgroundCamera";
+			backgroundCameraGameObject.transform.parent = cameraInTrackingSpace ? cameraRig.trackingSpace : parentObject.transform;
+			if (backgroundCameraGameObject.GetComponent<AudioListener>())
+			{
+				Object.Destroy(backgroundCameraGameObject.GetComponent<AudioListener>());
+			}
+			if (backgroundCameraGameObject.GetComponent<OVRManager>())
+			{
+				Object.Destroy(backgroundCameraGameObject.GetComponent<OVRManager>());
+			}
+			backgroundCamera = backgroundCameraGameObject.GetComponent<Camera>();
+			backgroundCamera.tag = "Untagged";
+			backgroundCamera.stereoTargetEye = StereoTargetEyeMask.None;
+			backgroundCamera.depth = 99990.0f;
+			backgroundCamera.rect = new Rect(0.0f, 0.0f, 0.5f, 1.0f);
+			backgroundCamera.cullingMask = mainCamera.cullingMask & (~OVRManager.instance.extraHiddenLayers);
 #if OVR_ANDROID_MRC
-		backgroundCamera.targetTexture = mrcRenderTextureArray[0];
+			backgroundCamera.targetTexture = mrcRenderTextureArray[0];
 #endif
 
-		Debug.Assert(foregroundCameraGameObject == null);
-		foregroundCameraGameObject = new GameObject();
-		foregroundCameraGameObject.name = "MRForgroundCamera";
-		foregroundCameraGameObject.transform.parent = cameraInTrackingSpace ? cameraRig.trackingSpace : parentObject.transform;
-		foregroundCamera = foregroundCameraGameObject.AddComponent<Camera>();
-		foregroundCamera.stereoTargetEye = StereoTargetEyeMask.None;
-		foregroundCamera.depth = backgroundCamera.depth + 1.0f;		// enforce the forground be rendered after the background
-		foregroundCamera.rect = new Rect(0.5f, 0.0f, 0.5f, 1.0f);
-		foregroundCamera.clearFlags = CameraClearFlags.Color;
-		foregroundCamera.backgroundColor = OVRManager.instance.externalCompositionBackdropColor;
-		foregroundCamera.cullingMask = mainCamera.cullingMask & (~OVRManager.instance.extraHiddenLayers);
-		foregroundCamera.nearClipPlane = mainCamera.nearClipPlane;
-		foregroundCamera.farClipPlane = mainCamera.farClipPlane;
+			Debug.Assert(foregroundCameraGameObject == null);
+			foregroundCameraGameObject = Object.Instantiate(mainCamera.gameObject);
+			foregroundCameraGameObject.name = "OculusMRC_ForgroundCamera";
+			foregroundCameraGameObject.transform.parent = cameraInTrackingSpace ? cameraRig.trackingSpace : parentObject.transform;
+			if (foregroundCameraGameObject.GetComponent<AudioListener>())
+			{
+				Object.Destroy(foregroundCameraGameObject.GetComponent<AudioListener>());
+			}
+			if (foregroundCameraGameObject.GetComponent<OVRManager>())
+			{
+				Object.Destroy(foregroundCameraGameObject.GetComponent<OVRManager>());
+			}
+			foregroundCamera = foregroundCameraGameObject.GetComponent<Camera>();
+			foregroundCamera.tag = "Untagged";
+			foregroundCamera.stereoTargetEye = StereoTargetEyeMask.None;
+			foregroundCamera.depth = backgroundCamera.depth + 1.0f;     // enforce the forground be rendered after the background
+			foregroundCamera.rect = new Rect(0.5f, 0.0f, 0.5f, 1.0f);
+			foregroundCamera.clearFlags = CameraClearFlags.Color;
 #if OVR_ANDROID_MRC
-		foregroundCamera.targetTexture = mrcRenderTextureArray[0];
+			foregroundCamera.backgroundColor = OVRManager.instance.externalCompositionBackdropColorQuest;
+#else
+			foregroundCamera.backgroundColor = OVRManager.instance.externalCompositionBackdropColorRift;
+#endif
+			foregroundCamera.cullingMask = mainCamera.cullingMask & (~OVRManager.instance.extraHiddenLayers);
+#if OVR_ANDROID_MRC
+			foregroundCamera.targetTexture = mrcRenderTextureArray[0];
 #endif
 
-		// Create cameraProxyPlane for clipping
-		Debug.Assert(cameraProxyPlane == null);
-		cameraProxyPlane = GameObject.CreatePrimitive(PrimitiveType.Quad);
-		cameraProxyPlane.name = "MRProxyClipPlane";
-		cameraProxyPlane.transform.parent = cameraInTrackingSpace ? cameraRig.trackingSpace : parentObject.transform;
-		cameraProxyPlane.GetComponent<Collider>().enabled = false;
-		cameraProxyPlane.GetComponent<MeshRenderer>().shadowCastingMode = UnityEngine.Rendering.ShadowCastingMode.Off;
-		Material clipMaterial = new Material(Shader.Find("Oculus/OVRMRClipPlane"));
-		cameraProxyPlane.GetComponent<MeshRenderer>().material = clipMaterial;
-		clipMaterial.SetColor("_Color", OVRManager.instance.externalCompositionBackdropColor);
-		clipMaterial.SetFloat("_Visible", 0.0f);
-		cameraProxyPlane.transform.localScale = new Vector3(1000, 1000, 1000);
-		cameraProxyPlane.SetActive(true);
-		OVRMRForegroundCameraManager foregroundCameraManager = foregroundCameraGameObject.AddComponent<OVRMRForegroundCameraManager>();
-		foregroundCameraManager.composition = this;
-		foregroundCameraManager.clipPlaneGameObj = cameraProxyPlane;
+			previousMainCameraObject = mainCamera.gameObject;
+		}
 	}
 
 #if OVR_ANDROID_MRC
@@ -157,22 +174,24 @@ public class OVRExternalComposition : OVRComposition
 		}
 	}
 
+	private float[] cachedAudioDataArray = null;
+
 	private int CastMrcFrame(int castTextureIndex)
 	{
-		float[] audioData;
+		int audioFrames;
 		int audioChannels;
-		GetAndResetAudioData(out audioData, out audioChannels);
+		GetAndResetAudioData(ref cachedAudioDataArray, out audioFrames, out audioChannels);
 
 		int syncId = -1;
 		//Debug.Log("EncodeFrameThreadObject EncodeMrcFrame");
 		bool ret = false;
 		if (OVRPlugin.Media.GetMrcInputVideoBufferType() == OVRPlugin.Media.InputVideoBufferType.TextureHandle)
 		{
-			ret = OVRPlugin.Media.EncodeMrcFrame(mrcRenderTextureArray[castTextureIndex].GetNativeTexturePtr(), audioData, audioChannels, AudioSettings.dspTime, ref syncId);
+			ret = OVRPlugin.Media.EncodeMrcFrame(mrcRenderTextureArray[castTextureIndex].GetNativeTexturePtr(), cachedAudioDataArray, audioFrames, audioChannels, AudioSettings.dspTime, ref syncId);
 		}
 		else
 		{
-			ret = OVRPlugin.Media.EncodeMrcFrame(mrcRenderTextureArray[castTextureIndex], audioData, audioChannels, AudioSettings.dspTime, ref syncId);
+			ret = OVRPlugin.Media.EncodeMrcFrame(mrcRenderTextureArray[castTextureIndex], cachedAudioDataArray, audioFrames, audioChannels, AudioSettings.dspTime, ref syncId);
 		}
 
 		if (!ret)
@@ -199,8 +218,10 @@ public class OVRExternalComposition : OVRComposition
 #endif
 
 
-	public override void Update(Camera mainCamera)
+	public override void Update(GameObject gameObject, Camera mainCamera)
 	{
+		RefreshCameraObjects(gameObject, mainCamera);
+
 		OVRPlugin.SetHandNodePoseStateLatency(0.0);     // the HandNodePoseStateLatency doesn't apply to the external composition. Always enforce it to 0.0
 
 #if OVR_ANDROID_MRC
@@ -298,11 +319,9 @@ public class OVRExternalComposition : OVRComposition
 			}
 		}
 
-		// Assume player always standing straightly
-		Vector3 externalCameraToHeadXZ = mainCamera.transform.position - foregroundCamera.transform.position;
-		externalCameraToHeadXZ.y = 0;
-		cameraProxyPlane.transform.position = mainCamera.transform.position;
-		cameraProxyPlane.transform.LookAt(cameraProxyPlane.transform.position + externalCameraToHeadXZ);
+		Vector3 headToExternalCameraVec = mainCamera.transform.position - foregroundCamera.transform.position;
+		float clipDistance = Vector3.Dot(headToExternalCameraVec, foregroundCamera.transform.forward);
+		foregroundCamera.farClipPlane = Mathf.Max(foregroundCamera.nearClipPlane + 0.001f, clipDistance);
 	}
 
 #if OVR_ANDROID_MRC
@@ -325,7 +344,6 @@ public class OVRExternalComposition : OVRComposition
 		backgroundCamera = null;
 		OVRCompositionUtil.SafeDestroy(ref foregroundCameraGameObject);
 		foregroundCamera = null;
-		OVRCompositionUtil.SafeDestroy(ref cameraProxyPlane);
 		Debug.Log("ExternalComposition deactivated");
 
 #if OVR_ANDROID_MRC
@@ -348,7 +366,7 @@ public class OVRExternalComposition : OVRComposition
 	}
 
 	private readonly object audioDataLock = new object();
-	private List<float> cachedAudioData = new List<float>();
+	private List<float> cachedAudioData = new List<float>(16384);
 	private int cachedChannels = 0;
 
 	public void CacheAudioData(float[] data, int channels)
@@ -365,46 +383,22 @@ public class OVRExternalComposition : OVRComposition
 		}
 	}
 
-	public void GetAndResetAudioData(out float[] audioData, out int channels)
+	public void GetAndResetAudioData(ref float[] audioData, out int audioFrames, out int channels)
 	{
 		lock(audioDataLock)
 		{
 			//Debug.LogFormat("[GetAndResetAudioData] dspTime {0} accu_len {1}", AudioSettings.dspTime, cachedAudioData.Count);
-			audioData = new float[cachedAudioData.Count];
+			if (audioData == null || audioData.Length < cachedAudioData.Count)
+			{
+				audioData = new float[cachedAudioData.Capacity];
+			}
 			cachedAudioData.CopyTo(audioData);
+			audioFrames = cachedAudioData.Count;
 			channels = cachedChannels;
 			cachedAudioData.Clear();
 		}
 	}
 
-}
-
-/// <summary>
-/// Helper internal class for foregroundCamera, don't call it outside
-/// </summary>
-internal class OVRMRForegroundCameraManager : MonoBehaviour
-{
-	public OVRExternalComposition composition;
-	public GameObject clipPlaneGameObj;
-	private Material clipPlaneMaterial;
-	void OnPreRender()
-	{
-		// the clipPlaneGameObj should be only visible to foreground camera
-		if (clipPlaneGameObj)
-		{
-			if (clipPlaneMaterial == null)
-				clipPlaneMaterial = clipPlaneGameObj.GetComponent<MeshRenderer>().material;
-			clipPlaneGameObj.GetComponent<MeshRenderer>().material.SetFloat("_Visible", 1.0f);
-		}
-	}
-	void OnPostRender()
-	{
-		if (clipPlaneGameObj)
-		{
-			Debug.Assert(clipPlaneMaterial);
-			clipPlaneGameObj.GetComponent<MeshRenderer>().material.SetFloat("_Visible", 0.0f);
-		}
-	}
 }
 
 #if OVR_ANDROID_MRC

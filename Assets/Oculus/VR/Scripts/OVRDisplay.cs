@@ -103,6 +103,8 @@ public class OVRDisplay
 	private EyeRenderDesc[] eyeDescs = new EyeRenderDesc[2];
 	private bool recenterRequested = false;
 	private int recenterRequestedFrameCount = int.MaxValue;
+	private OVRPose previousRelativeTrackingSpacePose;
+	private OVRManager.TrackingOrigin previousTrackingOrigin;
 
 	/// <summary>
 	/// Creates an instance of OVRDisplay. Called by OVRManager.
@@ -110,6 +112,12 @@ public class OVRDisplay
 	public OVRDisplay()
 	{
 		UpdateTextures();
+		if (OVRPlugin.GetSystemHeadsetType() == OVRPlugin.SystemHeadset.Oculus_Quest)
+		{
+			previousTrackingOrigin = OVRManager.instance.trackingOriginType;
+			OVRManager.TrackingOrigin relativeOrigin = (previousTrackingOrigin != OVRManager.TrackingOrigin.Stage) ? OVRManager.TrackingOrigin.Stage : OVRManager.TrackingOrigin.EyeLevel;
+			previousRelativeTrackingSpacePose = OVRPlugin.GetTrackingTransformRelativePose((OVRPlugin.TrackingOrigin)relativeOrigin).ToOVRPose();
+		}
 	}
 
 	/// <summary>
@@ -127,6 +135,18 @@ public class OVRDisplay
 			}
 			recenterRequested = false;
 			recenterRequestedFrameCount = int.MaxValue;
+		}
+		if (OVRPlugin.GetSystemHeadsetType() == OVRPlugin.SystemHeadset.Oculus_Quest)
+		{
+			OVRManager.TrackingOrigin relativeOrigin = (OVRManager.instance.trackingOriginType != OVRManager.TrackingOrigin.Stage) ? OVRManager.TrackingOrigin.Stage : OVRManager.TrackingOrigin.EyeLevel;
+			OVRPose relativeTrackingSpacePose = OVRPlugin.GetTrackingTransformRelativePose((OVRPlugin.TrackingOrigin)relativeOrigin).ToOVRPose();
+			//If the tracking origin type hasn't switched and the relative pose changes, a recenter occurred.
+			if (previousTrackingOrigin == OVRManager.instance.trackingOriginType && previousRelativeTrackingSpacePose != relativeTrackingSpacePose && RecenteredPose != null)
+			{
+				RecenteredPose();
+			}
+			previousRelativeTrackingSpacePose = relativeTrackingSpacePose;
+			previousTrackingOrigin = OVRManager.instance.trackingOriginType;
 		}
 	}
 
