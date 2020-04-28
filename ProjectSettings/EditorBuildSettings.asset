@@ -8,4 +8,8 @@ EditorBuildSettings:
   - enabled: 1
     path: Assets/Scenes/QuestAppLauncher.unity
     guid: dca0720aceedefc46b483f0277b30d6a
-  m_configObjects: {}
+  m_configObjects:
+    Unity.XR.Oculus.Settings: {fileID: 11400000, guid: 497e8cda6e724d341b6eeb4df763826d,
+      type: 2}
+    com.unity.xr.management.loader_settings: {fileID: 11400000, guid: 2be630b98a6f0a248ac3849f76251ed9,
+      type: 2}
