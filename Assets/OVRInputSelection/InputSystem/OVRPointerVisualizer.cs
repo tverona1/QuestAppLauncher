@@ -23,7 +23,15 @@ using UnityEngine.SceneManagement;
 
 namespace ControllerSelection {
 
-    public class OVRPointerVisualizer : MonoBehaviour {
+    public class OVRPointerVisualizer : MonoBehaviour
+    {
+        public enum Hand
+        {
+            None,
+            Left = OVRInputHelpers.HandFilter.Left,
+            Right = OVRInputHelpers.HandFilter.Right
+        }
+
         [Header("(Optional) Tracking space")]
         [Tooltip("Tracking space of the OVRCameraRig.\nIf tracking space is not set, the scene will be searched.\nThis search is expensive.")]
         public Transform trackingSpace = null;
@@ -38,36 +46,42 @@ namespace ControllerSelection {
         public float gazeDrawDistance = 3;
         [Tooltip("Show gaze pointer as ray pointer.")]
         public bool showRayPointer = true;
+        [Tooltip("Left or Right hand / controller")]
+        public Hand handType = Hand.None;
 
         // Start ray draw distance
         private const float StartRayDrawDistance = 0.032f;
 
-        [HideInInspector]
-        public OVRInput.Controller activeController = OVRInput.Controller.None;
-
-        void Awake() {
-            if (trackingSpace == null) {
+        void Awake()
+        {
+            if (trackingSpace == null)
+            {
                 Debug.LogWarning("OVRPointerVisualizer did not have a tracking space set. Looking for one");
                 trackingSpace = OVRInputHelpers.FindTrackingSpace();
             }
         }
 
-        void OnEnable() {
+        void OnEnable()
+        {
             SceneManager.sceneLoaded += OnSceneLoaded;
         }
 
-        void OnDisable() {
+        void OnDisable()
+        {
             SceneManager.sceneLoaded -= OnSceneLoaded;
         }
 
-        void OnSceneLoaded(Scene scene, LoadSceneMode mode) {
-            if (trackingSpace == null) {
+        void OnSceneLoaded(Scene scene, LoadSceneMode mode)
+        {
+            if (trackingSpace == null)
+            {
                 Debug.LogWarning("OVRPointerVisualizer did not have a tracking space set. Looking for one");
                 trackingSpace = OVRInputHelpers.FindTrackingSpace();
             }
         }
 
-        public void SetPointer(Ray ray) {
+        void SetPointer(Ray ray)
+        {
             float hitRayDrawDistance = rayDrawDistance;
             RaycastHit hit;
             if (Physics.Raycast(ray, out hit))
@@ -75,40 +89,54 @@ namespace ControllerSelection {
                 hitRayDrawDistance = hit.distance;
             }
 
-            if (linePointer != null) {
+            if (linePointer != null)
+            {
                 linePointer.SetPosition(0, ray.origin + ray.direction * StartRayDrawDistance);
                 linePointer.SetPosition(1, ray.origin + ray.direction * hitRayDrawDistance);
             }
 
-            if (gazePointer != null) {
+            if (gazePointer != null)
+            {
                 gazePointer.position = ray.origin + ray.direction * (showRayPointer ? hitRayDrawDistance : gazeDrawDistance);
             }
         }
 
-        public void SetPointerVisibility() {
-            if (trackingSpace != null && activeController != OVRInput.Controller.None) {
-                if (linePointer != null) {
+        void SetPointerVisibility(bool show)
+        {
+            if (show) {
+                if (linePointer != null)
+                {
                     linePointer.enabled = true;
                 }
-                if (gazePointer != null) {
+                if (gazePointer != null)
+                {
                     gazePointer.gameObject.SetActive(showRayPointer ? true : false);
                 }
             }
             else {
-                if (linePointer != null) {
+                if (linePointer != null)
+                {
                     linePointer.enabled = false;
                 }
-                if (gazePointer != null) {
+                if (gazePointer != null)
+                {
                     gazePointer.gameObject.SetActive(showRayPointer ? false : true);
                 }
             }
         }
 
-        void Update() {
-            activeController = OVRInputHelpers.GetControllerForButton(OVRInput.Button.PrimaryIndexTrigger, activeController);
-            Ray selectionRay = OVRInputHelpers.GetSelectionRay(activeController, trackingSpace);
-            SetPointerVisibility();
-            SetPointer(selectionRay);
+        void Update()
+        {
+            var activeController = OVRInputHelpers.GetConnectedControllers((OVRInputHelpers.HandFilter)handType);
+
+            Ray selectionRay;
+            bool gotRay = OVRInputHelpers.GetSelectionRay(activeController, trackingSpace, out selectionRay);
+            SetPointerVisibility(gotRay && trackingSpace != null && activeController != OVRInput.Controller.None);
+
+            if (gotRay)
+            {
+                SetPointer(selectionRay);
+            }
         }
     }
 }

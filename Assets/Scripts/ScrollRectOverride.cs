@@ -3,10 +3,11 @@ using System.Collections;
 using UnityEngine.UI;
 using UnityEngine.EventSystems;
 using ControllerSelection;
+using System.ComponentModel;
 
 namespace QuestAppLauncher
 {
-    public class ScrollRectOverride : ScrollRect, IMoveHandler, IPointerClickHandler, IScrollHandler
+    public class ScrollRectOverride : ScrollRect, IMoveHandler, IPointerClickHandler, IScrollHandler, IDragHandler
     {
         // Scrolling speed multiplier
         private const float SpeedMultiplier = 15f;
@@ -33,12 +34,25 @@ namespace QuestAppLauncher
         // Whether the pointer is within bounds of the scroll rect
         private bool isInBounds = false;
 
-        private OVRInput.Controller activeController = OVRInput.Controller.None;
+        // Parent OVRRawRayCaster
+        private OVRRawRaycaster parentRawRaycaster = null;
 
         void Start()
         {
             this.cellHeight = this.transform.GetComponentInChildren<GridLayoutGroup>().cellSize.y;
             this.boxCollider = GetComponent<BoxCollider>();
+
+            // Find parent OVRRawRayCaster
+            Transform t = this.gameObject.transform;
+            while (t.parent != null)
+            {
+                parentRawRaycaster = t.parent.GetComponent<OVRRawRaycaster>();
+                if (parentRawRaycaster != null)
+                {
+                    break;
+                }
+                t = t.parent.transform;
+            }
         }
 
         void Update()
@@ -53,11 +67,17 @@ namespace QuestAppLauncher
             // colliders, which will behave as expected.
             // If we do not get a hit, it means that we're outside the scroll view - so we disable all the children
             // box colliders, which addresses the issue above.
-            this.activeController = OVRInputHelpers.GetControllerForButton(OVRInput.Button.PrimaryIndexTrigger, this.activeController);
-            Ray pointer = OVRInputHelpers.GetSelectionRay(this.activeController, this.trackingSpace);
+            var activeControllerLeft = OVRInputHelpers.GetConnectedControllers(OVRInputHelpers.HandFilter.Left);
+            Ray pointerLeft;
+            bool gotRayLeft = OVRInputHelpers.GetSelectionRay(activeControllerLeft, this.trackingSpace, out pointerLeft);
 
-            RaycastHit hit;
-            if (this.boxCollider.Raycast(pointer, out hit, 500))
+            var activeControllerRight = OVRInputHelpers.GetConnectedControllers(OVRInputHelpers.HandFilter.Right);
+            Ray pointerRight;
+            bool gotRayRight = OVRInputHelpers.GetSelectionRay(activeControllerRight, this.trackingSpace, out pointerRight);
+
+            RaycastHit hitLeft;
+            RaycastHit hitRight;
+            if (gotRayLeft && this.boxCollider.Raycast(pointerLeft, out hitLeft, 500) || gotRayRight && this.boxCollider.Raycast(pointerRight, out hitRight, 500))
             {
                 // We got a hit in the scroll view. Check if we're already within the bounds - if so, do nothing.
                 if (!isInBounds)
@@ -146,6 +166,32 @@ namespace QuestAppLauncher
 
         public override void OnBeginDrag(PointerEventData eventData)
         {
+            // Only handle dragging if hands are active. Use thumbstick on controllers.
+            if (!OVRPlugin.GetHandTrackingEnabled())
+            {
+                return;
+            }
+
+            if (null != parentRawRaycaster)
+            {
+                parentRawRaycaster.OnBeginDrag(eventData);
+            }
+            base.OnBeginDrag(eventData);
+        }
+
+        public override void OnEndDrag(PointerEventData eventData)
+        {
+            // Only handle dragging if hands are active. Use thumbstick on controllers.
+            if (!OVRPlugin.GetHandTrackingEnabled())
+            {
+                return;
+            }
+
+            if (null != parentRawRaycaster)
+            {
+                parentRawRaycaster.OnEndDrag(eventData);
+            }
+            base.OnEndDrag(eventData);
         }
 
         void IMoveHandler.OnMove(AxisEventData e)
@@ -154,6 +200,7 @@ namespace QuestAppLauncher
 
         void IScrollHandler.OnScroll(PointerEventData eventData)
         {
+            base.OnScroll(eventData);
         }
 
         void OnMouseDrag()

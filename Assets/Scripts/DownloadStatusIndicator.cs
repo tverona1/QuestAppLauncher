@@ -38,7 +38,7 @@ namespace QuestAppLauncher
         private readonly object stateLock = new object();
 
         // State information
-        private string name;
+        private string fileName;
         private float progress;
         private string errorMessage;
 
@@ -64,10 +64,10 @@ namespace QuestAppLauncher
                 switch (this.state)
                 {
                     case State.DownloadStart:
-                        this.textGui.text = string.Format("Downloading {0}", this.name);
+                        this.textGui.text = string.Format("Downloading {0}", this.fileName);
                         break;
                     case State.DownloadFinish:
-                        this.textGui.text = string.Format("Downloading {0} [100%]", this.name);
+                        this.textGui.text = string.Format("Downloading {0} [100%]", this.fileName);
                         break;
                     case State.Checking:
                         this.textGui.text = string.Format("Checking for updates");
@@ -100,7 +100,7 @@ namespace QuestAppLauncher
                         this.textGui.text = this.errorMessage;
                         break;
                     case State.DownloadProgress:
-                        this.textGui.text = string.Format("Downloading {0} [{1:0}%]", this.name, this.progress * 100);
+                        this.textGui.text = string.Format("Downloading {0} [{1:0}%]", this.fileName, this.progress * 100);
                         this.state = State.DownloadProgressUpdated;
                         break;
                 }
@@ -114,11 +114,11 @@ namespace QuestAppLauncher
             }
         }
 
-        public void OnDownloadStart(string name)
+        public void OnDownloadStart(string fileName)
         {
             lock (this.stateLock)
             {
-                this.name = name;
+                this.fileName = fileName;
                 this.state = State.DownloadStart;
             }
         }

@@ -313,6 +313,14 @@ namespace Assets.Oculus.VR.Editor
 
 			GUILayout.FlexibleSpace();
 
+			if (OVRPlatformToolSettings.TargetPlatform != TargetPlatform.Rift)
+			{
+				// Skip Unneeded Shaders Option
+				GUIContent SkipUnneededShadersLabel = new GUIContent("Skip Unneeded Shaders (Recommended) [?]: ",
+					"Prevent building shaders that are not used by default for the current Target Oculus Platform.");
+				OVRPlatformToolSettings.SkipUnneededShaders = MakeToggleBox(SkipUnneededShadersLabel, OVRPlatformToolSettings.SkipUnneededShaders);
+			}
+
 			// Run OVR Lint Option
 			EditorGUIUtility.labelWidth = DEFAULT_LABEL_WIDTH;
 			GUIContent RunOvrLintLabel = new GUIContent("Run OVR Lint (Recommended) [?]: ",
