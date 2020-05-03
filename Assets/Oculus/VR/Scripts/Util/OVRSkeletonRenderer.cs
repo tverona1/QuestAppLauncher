@@ -236,11 +236,26 @@ public class OVRSkeletonRenderer : MonoBehaviour
 
 	private void Initialize()
 	{
-		_boneVisualizations = new List<BoneVisualization>();
-		_capsuleVisualizations = new List<CapsuleVisualization>();
-		_ovrSkeleton = GetComponent<OVRSkeleton>();
-		_skeletonGO = new GameObject("SkeletonRenderer");
-		_skeletonGO.transform.SetParent(transform, false);
+		if (null == _boneVisualizations)
+		{
+			_boneVisualizations = new List<BoneVisualization>();
+		}
+
+		if (null == _capsuleVisualizations)
+		{
+			_capsuleVisualizations = new List<CapsuleVisualization>();
+		}
+
+		if (null == _ovrSkeleton)
+		{
+			_ovrSkeleton = GetComponent<OVRSkeleton>();
+		}
+
+		if (null == _skeletonGO)
+		{
+			_skeletonGO = new GameObject("SkeletonRenderer");
+			_skeletonGO.transform.SetParent(transform, false);
+		}
 
 		if (_skeletonMaterial == null)
 		{
@@ -331,15 +346,10 @@ public class OVRSkeletonRenderer : MonoBehaviour
 				_capsuleVisualizations[i].Update(_scale, shouldRender, ShouldUseSystemGestureMaterial, _confidenceBehavior, _systemGestureBehavior);
 			}
 		}
-#if UNITY_EDITOR
-		else
+		else if (OVRInput.IsControllerConnected(OVRInput.Controller.Hands))
 		{
-			if (OVRInput.IsControllerConnected(OVRInput.Controller.Hands) && !IsInitialized)
-			{
-				Initialize();
-			}
+			Initialize();
 		}
-#endif
 	}
 
 	private void OnDestroy()
