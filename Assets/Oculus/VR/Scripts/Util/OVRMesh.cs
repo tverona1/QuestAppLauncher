@@ -120,7 +120,6 @@ public class OVRMesh : MonoBehaviour
 		}
 	}
 
-#if UNITY_EDITOR
 	private void Update()
 	{
 		if (OVRInput.IsControllerConnected(OVRInput.Controller.Hands) && !IsInitialized)
@@ -131,5 +130,4 @@ public class OVRMesh : MonoBehaviour
 			}
 		}
 	}
-#endif
 }

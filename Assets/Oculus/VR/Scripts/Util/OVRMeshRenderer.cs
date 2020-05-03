@@ -171,7 +171,6 @@ public class OVRMeshRenderer : MonoBehaviour
 				}
 			}
 		}
-#if UNITY_EDITOR
 		else
 		{
 			if (OVRInput.IsControllerConnected(OVRInput.Controller.Hands))
@@ -179,6 +178,5 @@ public class OVRMeshRenderer : MonoBehaviour
 				Initialize();
 			}
 		}
-#endif
 	}
 }

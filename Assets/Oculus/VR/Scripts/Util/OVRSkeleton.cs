@@ -292,7 +292,6 @@ public class OVRSkeleton : MonoBehaviour
 
 	private void Update()
 	{
-#if UNITY_EDITOR
 		if (OVRInput.IsControllerConnected(OVRInput.Controller.Hands) && !IsInitialized)
 		{
 			if (_skeletonType != SkeletonType.None)
@@ -300,7 +299,6 @@ public class OVRSkeleton : MonoBehaviour
 				Initialize();
 			}
 		}
-#endif
 
 		if (!IsInitialized || _dataProvider == null)
 		{

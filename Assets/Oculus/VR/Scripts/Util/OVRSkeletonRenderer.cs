@@ -331,7 +331,6 @@ public class OVRSkeletonRenderer : MonoBehaviour
 				_capsuleVisualizations[i].Update(_scale, shouldRender, ShouldUseSystemGestureMaterial, _confidenceBehavior, _systemGestureBehavior);
 			}
 		}
-#if UNITY_EDITOR
 		else
 		{
 			if (OVRInput.IsControllerConnected(OVRInput.Controller.Hands) && !IsInitialized)
@@ -339,7 +338,6 @@ public class OVRSkeletonRenderer : MonoBehaviour
 				Initialize();
 			}
 		}
-#endif
 	}
 
 	private void OnDestroy()
