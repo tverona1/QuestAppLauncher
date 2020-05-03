@@ -66,7 +66,10 @@ public class OVRMesh : MonoBehaviour
 
 	private void Initialize(MeshType meshType)
 	{
-		_mesh = new Mesh();
+		if (null == _mesh)
+		{
+			_mesh = new Mesh();
+		}
 
 		var ovrpMesh = new OVRPlugin.Mesh();
 		if (OVRPlugin.GetMesh((OVRPlugin.MeshType)_meshType, out ovrpMesh))
@@ -122,7 +125,7 @@ public class OVRMesh : MonoBehaviour
 
 	private void Update()
 	{
-		if (OVRInput.IsControllerConnected(OVRInput.Controller.Hands) && !IsInitialized)
+		if (!IsInitialized && OVRInput.IsControllerConnected(OVRInput.Controller.Hands))
 		{
 			if (_meshType != MeshType.None)
 			{

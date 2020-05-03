@@ -292,7 +292,7 @@ public class OVRSkeleton : MonoBehaviour
 
 	private void Update()
 	{
-		if (OVRInput.IsControllerConnected(OVRInput.Controller.Hands) && !IsInitialized)
+		if (!IsInitialized && OVRInput.IsControllerConnected(OVRInput.Controller.Hands))
 		{
 			if (_skeletonType != SkeletonType.None)
 			{

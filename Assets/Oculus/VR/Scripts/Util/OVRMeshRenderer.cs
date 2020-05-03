@@ -171,12 +171,9 @@ public class OVRMeshRenderer : MonoBehaviour
 				}
 			}
 		}
-		else
+		else if (OVRInput.IsControllerConnected(OVRInput.Controller.Hands))
 		{
-			if (OVRInput.IsControllerConnected(OVRInput.Controller.Hands))
-			{
-				Initialize();
-			}
+			Initialize();
 		}
 	}
 }
