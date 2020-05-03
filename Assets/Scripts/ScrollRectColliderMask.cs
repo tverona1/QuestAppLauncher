@@ -16,9 +16,6 @@ public class ScrollRectColliderMask : MonoBehaviour
 
     // Whether the pointer is within bounds of the scroll rect
     private bool isInBounds = true;
-    private bool isInitialized = false;
-
-    private OVRInput.Controller activeController = OVRInput.Controller.None;
 
     // Start is called before the first frame update
     void Start()
@@ -29,11 +26,17 @@ public class ScrollRectColliderMask : MonoBehaviour
     // Update is called once per frame
     void Update()
     {
-        this.activeController = OVRInputHelpers.GetControllerForButton(OVRInput.Button.PrimaryIndexTrigger, this.activeController);
-        Ray pointer = OVRInputHelpers.GetSelectionRay(this.activeController, this.trackingSpace);
+        var activeControllerLeft = OVRInputHelpers.GetConnectedControllers(OVRInputHelpers.HandFilter.Left);
+        Ray pointerLeft;
+        bool gotRayLeft = OVRInputHelpers.GetSelectionRay(activeControllerLeft, this.trackingSpace, out pointerLeft);
 
-        RaycastHit hit;
-        if (this.boxCollider.Raycast(pointer, out hit, 500))
+        var activeControllerRight = OVRInputHelpers.GetConnectedControllers(OVRInputHelpers.HandFilter.Right);
+        Ray pointerRight;
+        bool gotRayRight = OVRInputHelpers.GetSelectionRay(activeControllerRight, this.trackingSpace, out pointerRight);
+
+        RaycastHit hitLeft;
+        RaycastHit hitRight;
+        if (gotRayLeft && this.boxCollider.Raycast(pointerLeft, out hitLeft, 500) || gotRayRight && this.boxCollider.Raycast(pointerRight, out hitRight, 500))
         {
             // We got a hit in the scroll view. Check if we're already within the bounds - if so, do nothing.
             if (!isInBounds)

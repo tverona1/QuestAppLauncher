@@ -19,37 +19,137 @@ limitations under the License.
 
 ************************************************************************************/
 
+using System.Collections.Specialized;
+using System.Runtime.InteropServices;
 using UnityEngine;
 
-namespace ControllerSelection {
-    public class OVRInputHelpers {
-        // Given a controller and tracking spcae, return the ray that controller uses.
+namespace ControllerSelection
+{
+    public class OVRInputHelpers
+    {
+        public enum HandFilter
+        {
+            None = 0,
+            Left = 1,
+            Right = 2,
+            Both = Left | Right
+        }
+
+        /// <summary>
+        /// Indicates whether hand started pinching in this frame
+        /// </summary>
+        /// <param name="activeController"></param>
+        /// <param name="finger"></param>
+        /// <returns></returns>
+        public static bool IsFingerStartPinching(OVRInput.Controller activeController, OVRHand.HandFinger finger)
+        {
+            bool isLeftHand = (activeController & OVRInput.Controller.LHand) == OVRInput.Controller.LHand;
+            var curPinch = isLeftHand ? HandsManager.Instance.GetLeftPinchMode(finger) : HandsManager.Instance.GetRightPinchMode(finger);
+            var lastPinch = isLeftHand ? HandsManager.Instance.GetLastLeftPinchMode(finger) : HandsManager.Instance.GetLastRightPinchMode(finger);
+
+            return (lastPinch == HandsManager.PinchMode.NotPinched && curPinch == HandsManager.PinchMode.Pinched);
+        }
+
+        /// <summary>
+        /// Indicates whether hand stopped pinching in this frame
+        /// </summary>
+        /// <param name="activeController"></param>
+        /// <param name="finger"></param>
+        /// <returns></returns>
+        public static bool IsFingerStopPinching(OVRInput.Controller activeController, OVRHand.HandFinger finger)
+        {
+            bool isLeftHand = (activeController & OVRInput.Controller.LHand) == OVRInput.Controller.LHand;
+            var curPinch = isLeftHand ? HandsManager.Instance.GetLeftPinchMode(finger) : HandsManager.Instance.GetRightPinchMode(finger);
+            var lastPinch = isLeftHand ? HandsManager.Instance.GetLastLeftPinchMode(finger) : HandsManager.Instance.GetLastRightPinchMode(finger);
+
+            return (lastPinch == HandsManager.PinchMode.Pinched && curPinch == HandsManager.PinchMode.NotPinched);
+        }
+
+        /// <summary>
+        /// Indicates whether hand is pinching
+        /// </summary>
+        /// <param name="activeController"></param>
+        /// <param name="finger"></param>
+        /// <returns></returns>
+        public static bool IsFingerPinching(OVRInput.Controller activeController, OVRHand.HandFinger finger)
+        {
+            bool isLeftHand = (activeController & OVRInput.Controller.LHand) == OVRInput.Controller.LHand;
+            var curPinch = isLeftHand ? HandsManager.Instance.GetLeftPinchMode(finger) : HandsManager.Instance.GetRightPinchMode(finger);
+            return (curPinch == HandsManager.PinchMode.Pinched);
+        }
+
+        /// <summary>
+        /// Returns hand orientation
+        /// </summary>
+        /// <param name="factiveController"></param>
+        /// <param name="orientation"></param>
+        /// <param name="position"></param>
+        /// <returns></returns>
+        public static bool GetHandOrientation(OVRInput.Controller activeController, out Quaternion orientation, out Vector3 position)
+        {
+            orientation = default(Quaternion);
+            position = default(Vector3);
+
+            if ((activeController & OVRInput.Controller.Hands) == OVRInput.Controller.None)
+            {
+                return false;
+            }
+
+            if (!HandsManager.Instance || !HandsManager.Instance.IsInitialized())
+            {
+                return false;
+            }
+
+            var hand = (activeController & OVRInput.Controller.RHand) == OVRInput.Controller.RHand ? HandsManager.Instance.RightHand : HandsManager.Instance.LeftHand;
+            var isReliable = hand.IsTracked && hand.HandConfidence == OVRHand.TrackingConfidence.High;
+            if (!isReliable || !hand.IsPointerPoseValid)
+            {
+                return false;
+            }
+
+            var pointer = hand.PointerPose;
+
+            orientation = pointer.rotation;
+            position = pointer.position;
+
+            return true;
+        }
+
+        // Given a controller and tracking space, return the ray that controller uses.
         // Will fall back to center eye or camera on Gear if no controller is present.
-        public static Ray GetSelectionRay(OVRInput.Controller activeController, Transform trackingSpace) {
-            if (trackingSpace != null && activeController != OVRInput.Controller.None) {
-                Quaternion orientation = OVRInput.GetLocalControllerRotation(activeController);
-                Vector3 localStartPoint = OVRInput.GetLocalControllerPosition(activeController);
+        public static bool GetSelectionRay(OVRInput.Controller activeController, Transform trackingSpace, out Ray ray)
+        {
+            ray = default(Ray);
+            if (trackingSpace != null && activeController != OVRInput.Controller.None)
+            {
+                Quaternion orientation = default(Quaternion);
+                Vector3 localStartPoint = default(Vector3);
+
+                if ((activeController & OVRInput.Controller.Hands) != OVRInput.Controller.None)
+                {
+                    if (!GetHandOrientation(activeController, out orientation, out localStartPoint))
+                    {
+                        return false;
+                    }
+                }
+                else
+                {
+                    orientation = OVRInput.GetLocalControllerRotation(activeController);
+                    localStartPoint = OVRInput.GetLocalControllerPosition(activeController);
+                }
 
                 Matrix4x4 localToWorld = trackingSpace.localToWorldMatrix;
                 Vector3 worldStartPoint = localToWorld.MultiplyPoint(localStartPoint);
                 Vector3 worldOrientation = localToWorld.MultiplyVector(orientation * Vector3.forward);
 
-                return new Ray(worldStartPoint, worldOrientation);
+                ray = new Ray(worldStartPoint, worldOrientation);
+                return true;
             }
 
-            Transform cameraTransform = Camera.main.transform;
-
-            if (OVRManager.instance != null) {
-                OVRCameraRig cameraRig = OVRManager.instance.GetComponent<OVRCameraRig>();
-                if (cameraRig != null) {
-                    cameraTransform = cameraRig.centerEyeAnchor;
-                }
-            }
-
-            return new Ray(cameraTransform.position, cameraTransform.forward);
+            return false;
         }
 
-        // Search the scene to find a tracking spce. This method can be expensive! Try to avoid it if possible.
+        // Search the scene to find a tracking space. This method can be expensive! Try to avoid it if possible.
         public static Transform FindTrackingSpace() {
             // There should be an OVRManager in the scene
             if (OVRManager.instance != null) {
@@ -82,39 +182,53 @@ namespace ControllerSelection {
             return null;
         }
 
-        // Find the current active controller, based on last time a certain button was hit. Needs to know the previous active controller.
-        public static OVRInput.Controller GetControllerForButton(OVRInput.Button joyPadClickButton, OVRInput.Controller oldController) {
+        /// <summary>
+        /// Returns connected controllers
+        /// </summary>
+        /// <param name="filter"></param>
+        /// <returns></returns>
+        public static OVRInput.Controller GetConnectedControllers(HandFilter filter = HandFilter.Both)
+        {
             OVRInput.Controller controller = OVRInput.GetConnectedControllers();
 
-            if ((controller & OVRInput.Controller.RTouch) == OVRInput.Controller.RTouch) {
-                if (OVRInput.Get(joyPadClickButton, OVRInput.Controller.RTouch) || oldController == OVRInput.Controller.None) {
-                    return OVRInput.Controller.RTouch;
+            if (((filter & HandFilter.Right) == HandFilter.Right) && (controller & OVRInput.Controller.RTouch) == OVRInput.Controller.RTouch)
+            {
+                return OVRInput.Controller.RTouch;
+            }
+
+            if (((filter & HandFilter.Left) == HandFilter.Left) && (controller & OVRInput.Controller.LTouch) == OVRInput.Controller.LTouch)
+            {
+                return OVRInput.Controller.LTouch;
+            }
+
+            if (((filter & HandFilter.Right) == HandFilter.Right) && (controller & OVRInput.Controller.RTrackedRemote) == OVRInput.Controller.RTrackedRemote)
+            {
+                return OVRInput.Controller.RTrackedRemote;
+            }
+
+            if (((filter & HandFilter.Left) == HandFilter.Left) && (controller & OVRInput.Controller.LTrackedRemote) == OVRInput.Controller.LTrackedRemote)
+            {
+                return OVRInput.Controller.LTrackedRemote;
+            }
+
+            controller = OVRInput.Controller.None;
+            if (OVRPlugin.GetHandTrackingEnabled())
+            {
+                if ((filter & HandFilter.Both) == HandFilter.Both)
+                {
+                    return OVRInput.Controller.Hands;
+                }
+                else if ((filter & HandFilter.Right) == HandFilter.Right)
+                {
+                    return OVRInput.Controller.RHand;
+                }
+                else
+                {
+                    return OVRInput.Controller.LHand;
                 }
             }
 
-            if ((controller & OVRInput.Controller.LTouch) == OVRInput.Controller.LTouch) {
-                if (OVRInput.Get(joyPadClickButton, OVRInput.Controller.LTouch) || oldController == OVRInput.Controller.None) {
-                    return OVRInput.Controller.LTouch;
-                }
-            }
-
-            if ((controller & OVRInput.Controller.RTrackedRemote) == OVRInput.Controller.RTrackedRemote) {
-                if (OVRInput.Get(joyPadClickButton, OVRInput.Controller.RTrackedRemote) || oldController == OVRInput.Controller.None) {
-                    return OVRInput.Controller.RTrackedRemote;
-                }
-            }
-
-            if ((controller & OVRInput.Controller.LTrackedRemote) == OVRInput.Controller.LTrackedRemote) {
-                if (OVRInput.Get(joyPadClickButton, OVRInput.Controller.LTrackedRemote) || oldController == OVRInput.Controller.None) {
-                    return OVRInput.Controller.LTrackedRemote;
-                }
-            }
-
-            if ((controller & oldController) != oldController) {
-                return OVRInput.Controller.None;
-            }
-
-            return oldController;
+            return OVRInput.Controller.None;
         }
-    }
+	}
 }

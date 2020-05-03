@@ -58,6 +58,7 @@ namespace QuestAppLauncher
             return contentLength <= 0 ? 0 : Mathf.Clamp01((float)this.received / (float)contentLength);
         }
 
+        [Obsolete]
         protected override void ReceiveContentLength(int contentLength)
         {
             this.contentLength = contentLength;
