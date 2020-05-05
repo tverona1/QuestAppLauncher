@@ -280,7 +280,7 @@ namespace QuestAppLauncher
                     {
                         PackageName = apps[entry.Key].PackageName,
                         Index = apps[entry.Key].Index,
-                        AppName = appName,
+                        AppName = !String.IsNullOrWhiteSpace(appName) ? appName : apps[entry.Key].AppName,
                         AutoTabName = autoTabName ?? apps[entry.Key].AutoTabName,
                         Tab1Name = tab1 ?? apps[entry.Key].Tab1Name,
                         Tab2Name = tab2 ?? apps[entry.Key].Tab2Name,
