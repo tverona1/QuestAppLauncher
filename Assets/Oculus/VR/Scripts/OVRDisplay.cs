@@ -1,18 +1,21 @@
 /************************************************************************************
 Copyright : Copyright (c) Facebook Technologies, LLC and its affiliates. All rights reserved.
 
-Licensed under the Oculus Utilities SDK License Version 1.31 (the "License"); you may not use
-the Utilities SDK except in compliance with the License, which is provided at the time of installation
-or download, or which otherwise accompanies this software in either electronic or hard copy form.
-
-You may obtain a copy of the License at
-https://developer.oculus.com/licenses/utilities-1.31
+Your use of this SDK or tool is subject to the Oculus SDK License Agreement, available at
+https://developer.oculus.com/licenses/oculussdk/
 
 Unless required by applicable law or agreed to in writing, the Utilities SDK distributed
 under the License is distributed on an "AS IS" BASIS, WITHOUT WARRANTIES OR CONDITIONS OF
 ANY KIND, either express or implied. See the License for the specific language governing
 permissions and limitations under the License.
 ************************************************************************************/
+#if USING_XR_MANAGEMENT && USING_XR_SDK_OCULUS
+#define USING_XR_SDK
+#endif
+
+#if UNITY_2020_1_OR_NEWER
+#define REQUIRES_XR_SDK
+#endif
 
 using System;
 using System.Runtime.InteropServices;
@@ -20,20 +23,14 @@ using System.Text.RegularExpressions;
 using UnityEngine;
 using System.Collections.Generic;
 
-#if UNITY_2017_2_OR_NEWER
+#if USING_XR_SDK
+using UnityEngine.XR;
+using UnityEngine.Experimental.XR;
+#endif
+
 using InputTracking = UnityEngine.XR.InputTracking;
 using Node = UnityEngine.XR.XRNode;
-using NodeState = UnityEngine.XR.XRNodeState;
 using Settings = UnityEngine.XR.XRSettings;
-#elif UNITY_2017_1_OR_NEWER
-using InputTracking = UnityEngine.VR.InputTracking;
-using Node = UnityEngine.VR.VRNode;
-using NodeState = UnityEngine.VR.VRNodeState;
-using Settings = UnityEngine.VR.VRSettings;
-#else
-using Node = UnityEngine.VR.VRNode;
-using Settings = UnityEngine.VR.VRSettings;
-#endif
 
 /// <summary>
 /// Manages an Oculus Rift head-mounted display (HMD).
@@ -103,8 +100,7 @@ public class OVRDisplay
 	private EyeRenderDesc[] eyeDescs = new EyeRenderDesc[2];
 	private bool recenterRequested = false;
 	private int recenterRequestedFrameCount = int.MaxValue;
-	private OVRPose previousRelativeTrackingSpacePose;
-	private OVRManager.TrackingOrigin previousTrackingOrigin;
+	private int localTrackingSpaceRecenterCount = 0;
 
 	/// <summary>
 	/// Creates an instance of OVRDisplay. Called by OVRManager.
@@ -112,12 +108,6 @@ public class OVRDisplay
 	public OVRDisplay()
 	{
 		UpdateTextures();
-		if (OVRPlugin.GetSystemHeadsetType() == OVRPlugin.SystemHeadset.Oculus_Quest)
-		{
-			previousTrackingOrigin = OVRManager.instance.trackingOriginType;
-			OVRManager.TrackingOrigin relativeOrigin = (previousTrackingOrigin != OVRManager.TrackingOrigin.Stage) ? OVRManager.TrackingOrigin.Stage : OVRManager.TrackingOrigin.EyeLevel;
-			previousRelativeTrackingSpacePose = OVRPlugin.GetTrackingTransformRelativePose((OVRPlugin.TrackingOrigin)relativeOrigin).ToOVRPose();
-		}
 	}
 
 	/// <summary>
@@ -129,6 +119,7 @@ public class OVRDisplay
 
 		if (recenterRequested && Time.frameCount > recenterRequestedFrameCount)
 		{
+			Debug.Log("Recenter event detected");
 			if (RecenteredPose != null)
 			{
 				RecenteredPose();
@@ -136,17 +127,20 @@ public class OVRDisplay
 			recenterRequested = false;
 			recenterRequestedFrameCount = int.MaxValue;
 		}
-		if (OVRPlugin.GetSystemHeadsetType() == OVRPlugin.SystemHeadset.Oculus_Quest)
+
+		if (OVRPlugin.GetSystemHeadsetType() >= OVRPlugin.SystemHeadset.Oculus_Quest &&
+			OVRPlugin.GetSystemHeadsetType() < OVRPlugin.SystemHeadset.Rift_DK1) // all Oculus Standalone headsets
 		{
-			OVRManager.TrackingOrigin relativeOrigin = (OVRManager.instance.trackingOriginType != OVRManager.TrackingOrigin.Stage) ? OVRManager.TrackingOrigin.Stage : OVRManager.TrackingOrigin.EyeLevel;
-			OVRPose relativeTrackingSpacePose = OVRPlugin.GetTrackingTransformRelativePose((OVRPlugin.TrackingOrigin)relativeOrigin).ToOVRPose();
-			//If the tracking origin type hasn't switched and the relative pose changes, a recenter occurred.
-			if (previousTrackingOrigin == OVRManager.instance.trackingOriginType && previousRelativeTrackingSpacePose != relativeTrackingSpacePose && RecenteredPose != null)
+			int recenterCount = OVRPlugin.GetLocalTrackingSpaceRecenterCount();
+			if (localTrackingSpaceRecenterCount != recenterCount)
 			{
-				RecenteredPose();
+				Debug.Log("Recenter event detected");
+				if (RecenteredPose != null)
+				{
+					RecenteredPose();
+				}
+				localTrackingSpaceRecenterCount = recenterCount;
 			}
-			previousRelativeTrackingSpacePose = relativeTrackingSpacePose;
-			previousTrackingOrigin = OVRManager.instance.trackingOriginType;
 		}
 	}
 
@@ -160,10 +154,14 @@ public class OVRDisplay
 	/// </summary>
 	public void RecenterPose()
 	{
-#if UNITY_2017_2_OR_NEWER
-        UnityEngine.XR.InputTracking.Recenter();
-#else
-		UnityEngine.VR.InputTracking.Recenter();
+#if USING_XR_SDK
+		XRInputSubsystem currentInputSubsystem = OVRManager.GetCurrentInputSubsystem();
+		if (currentInputSubsystem != null)
+		{
+			currentInputSubsystem.TryRecenter();
+		}
+#elif !REQUIRES_XR_SDK
+		InputTracking.Recenter();
 #endif
 
 		// The current poses are cached for the current frame and won't be updated immediately
@@ -248,11 +246,7 @@ public class OVRDisplay
 	/// <summary>
 	/// Gets the resolution and field of view for the given eye.
 	/// </summary>
-#if UNITY_2017_2_OR_NEWER
     public EyeRenderDesc GetEyeRenderDesc(UnityEngine.XR.XRNode eye)
-#else
-	public EyeRenderDesc GetEyeRenderDesc(UnityEngine.VR.VRNode eye)
-#endif
 	{
 		return eyeDescs[(int)eye];
 	}
@@ -339,20 +333,11 @@ public class OVRDisplay
 
 	private void UpdateTextures()
 	{
-#if UNITY_2017_2_OR_NEWER
-		ConfigureEyeDesc(UnityEngine.XR.XRNode.LeftEye);
-        ConfigureEyeDesc(UnityEngine.XR.XRNode.RightEye);
-#else
-		ConfigureEyeDesc(UnityEngine.VR.VRNode.LeftEye);
-		ConfigureEyeDesc(UnityEngine.VR.VRNode.RightEye);
-#endif
+		ConfigureEyeDesc(Node.LeftEye);
+		ConfigureEyeDesc(Node.RightEye);
 	}
 
-#if UNITY_2017_2_OR_NEWER
-    private void ConfigureEyeDesc(UnityEngine.XR.XRNode eye)
-#else
-	private void ConfigureEyeDesc(UnityEngine.VR.VRNode eye)
-#endif
+	private void ConfigureEyeDesc(Node eye)
 	{
 		if (!OVRManager.isHmdPresent)
 			return;
@@ -394,7 +379,5 @@ public class OVRDisplay
 			eyeDescs[(int)eye].fullFov.UpFov = maxFovY;
 			eyeDescs[(int)eye].fullFov.DownFov = maxFovY;
 		}
-
-
 	}
 }

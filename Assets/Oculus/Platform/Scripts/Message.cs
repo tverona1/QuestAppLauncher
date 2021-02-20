@@ -90,6 +90,21 @@ namespace Oculus.Platform
       AssetFile_Status                                    = 0x02D32F60,
       AssetFile_StatusById                                = 0x5D955D38,
       AssetFile_StatusByName                              = 0x41CFDA50,
+      Challenges_Create                                   = 0x6859D641,
+      Challenges_DeclineInvite                            = 0x568E76C0,
+      Challenges_Delete                                   = 0x264885CA,
+      Challenges_Get                                      = 0x77584EF3,
+      Challenges_GetEntries                               = 0x121AB45F,
+      Challenges_GetEntriesAfterRank                      = 0x08891A7F,
+      Challenges_GetEntriesByIds                          = 0x316509DC,
+      Challenges_GetList                                  = 0x43264356,
+      Challenges_GetNextChallenges                        = 0x5B7CA1B6,
+      Challenges_GetNextEntries                           = 0x7F4CA0C6,
+      Challenges_GetPreviousChallenges                    = 0x0EB4040D,
+      Challenges_GetPreviousEntries                       = 0x78C90470,
+      Challenges_Join                                     = 0x21248069,
+      Challenges_Leave                                    = 0x296116E5,
+      Challenges_UpdateInfo                               = 0x1175BE60,
       CloudStorage2_GetUserDirectoryPath                  = 0x76A42EEE,
       CloudStorage_Delete                                 = 0x28DA456D,
       CloudStorage_GetNextCloudStorageMetadataArrayPage   = 0x5C07A2EF,
@@ -118,6 +133,7 @@ namespace Oculus.Platform
       Leaderboard_GetPreviousEntries                      = 0x4901DAC0,
       Leaderboard_WriteEntry                              = 0x117FC8FE,
       Livestreaming_GetStatus                             = 0x489A6995,
+      Livestreaming_LaunchLivestreamingFlow               = 0x6AB156BD,
       Livestreaming_PauseStream                           = 0x369C7683,
       Livestreaming_ResumeStream                          = 0x22526D8F,
       Matchmaking_Browse                                  = 0x1E6532C8,
@@ -269,6 +285,9 @@ namespace Oculus.Platform
       /// functions at any time to get the current state directly.
       Notification_Voip_SystemVoipState = 0x58D254A5,
 
+      /// Get surface and update action from platform webrtc for update.
+      Notification_Vrcamera_GetSurfaceUpdate = 0x37F21084,
+
 
       Platform_InitializeWithAccessToken = 0x35692F2B,
       Platform_InitializeStandaloneOculus = 0x51F8CE0C,
@@ -305,6 +324,9 @@ namespace Oculus.Platform
     public virtual CalApplicationFinalized GetCalApplicationFinalized() { return null; }
     public virtual CalApplicationProposed GetCalApplicationProposed() { return null; }
     public virtual CalApplicationSuggestionList GetCalApplicationSuggestionList() { return null; }
+    public virtual Challenge GetChallenge() { return null; }
+    public virtual ChallengeEntryList GetChallengeEntryList() { return null; }
+    public virtual ChallengeList GetChallengeList() { return null; }
     public virtual CloudStorageConflictMetadata GetCloudStorageConflictMetadata() { return null; }
     public virtual CloudStorageData GetCloudStorageData() { return null; }
     public virtual CloudStorageMetadata GetCloudStorageMetadata() { return null; }
@@ -432,6 +454,29 @@ namespace Oculus.Platform
           message = new MessageWithCalApplicationProposed(messageHandle);
           break;
 
+        case Message.MessageType.Challenges_Create:
+        case Message.MessageType.Challenges_DeclineInvite:
+        case Message.MessageType.Challenges_Get:
+        case Message.MessageType.Challenges_Join:
+        case Message.MessageType.Challenges_Leave:
+        case Message.MessageType.Challenges_UpdateInfo:
+          message = new MessageWithChallenge(messageHandle);
+          break;
+
+        case Message.MessageType.Challenges_GetList:
+        case Message.MessageType.Challenges_GetNextChallenges:
+        case Message.MessageType.Challenges_GetPreviousChallenges:
+          message = new MessageWithChallengeList(messageHandle);
+          break;
+
+        case Message.MessageType.Challenges_GetEntries:
+        case Message.MessageType.Challenges_GetEntriesAfterRank:
+        case Message.MessageType.Challenges_GetEntriesByIds:
+        case Message.MessageType.Challenges_GetNextEntries:
+        case Message.MessageType.Challenges_GetPreviousEntries:
+          message = new MessageWithChallengeEntryList(messageHandle);
+          break;
+
         case Message.MessageType.CloudStorage_LoadConflictMetadata:
           message = new MessageWithCloudStorageConflictMetadata(messageHandle);
           break;
@@ -463,8 +508,10 @@ namespace Oculus.Platform
           break;
 
         case Message.MessageType.ApplicationLifecycle_RegisterSessionKey:
+        case Message.MessageType.Challenges_Delete:
         case Message.MessageType.Entitlement_GetIsViewerEntitled:
         case Message.MessageType.IAP_ConsumePurchase:
+        case Message.MessageType.Livestreaming_LaunchLivestreamingFlow:
         case Message.MessageType.Matchmaking_Cancel:
         case Message.MessageType.Matchmaking_Cancel2:
         case Message.MessageType.Matchmaking_ReportResultInsecure:
@@ -619,6 +666,7 @@ namespace Oculus.Platform
         case Message.MessageType.CloudStorage2_GetUserDirectoryPath:
         case Message.MessageType.Notification_ApplicationLifecycle_LaunchIntentChanged:
         case Message.MessageType.Notification_Room_InviteAccepted:
+        case Message.MessageType.Notification_Vrcamera_GetSurfaceUpdate:
         case Message.MessageType.User_GetAccessToken:
           message = new MessageWithString(messageHandle);
           break;
@@ -879,6 +927,42 @@ namespace Oculus.Platform
       var msg = CAPI.ovr_Message_GetNativeMessage(c_message);
       var obj = CAPI.ovr_Message_GetCalApplicationSuggestionArray(msg);
       return new CalApplicationSuggestionList(obj);
+    }
+
+  }
+  public class MessageWithChallenge : Message<Challenge>
+  {
+    public MessageWithChallenge(IntPtr c_message) : base(c_message) { }
+    public override Challenge GetChallenge() { return Data; }
+    protected override Challenge GetDataFromMessage(IntPtr c_message)
+    {
+      var msg = CAPI.ovr_Message_GetNativeMessage(c_message);
+      var obj = CAPI.ovr_Message_GetChallenge(msg);
+      return new Challenge(obj);
+    }
+
+  }
+  public class MessageWithChallengeList : Message<ChallengeList>
+  {
+    public MessageWithChallengeList(IntPtr c_message) : base(c_message) { }
+    public override ChallengeList GetChallengeList() { return Data; }
+    protected override ChallengeList GetDataFromMessage(IntPtr c_message)
+    {
+      var msg = CAPI.ovr_Message_GetNativeMessage(c_message);
+      var obj = CAPI.ovr_Message_GetChallengeArray(msg);
+      return new ChallengeList(obj);
+    }
+
+  }
+  public class MessageWithChallengeEntryList : Message<ChallengeEntryList>
+  {
+    public MessageWithChallengeEntryList(IntPtr c_message) : base(c_message) { }
+    public override ChallengeEntryList GetChallengeEntryList() { return Data; }
+    protected override ChallengeEntryList GetDataFromMessage(IntPtr c_message)
+    {
+      var msg = CAPI.ovr_Message_GetNativeMessage(c_message);
+      var obj = CAPI.ovr_Message_GetChallengeEntryArray(msg);
+      return new ChallengeEntryList(obj);
     }
 
   }

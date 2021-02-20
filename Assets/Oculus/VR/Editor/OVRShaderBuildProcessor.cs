@@ -1,5 +1,3 @@
-#if UNITY_2018_2_OR_NEWER
-using Assets.Oculus.VR.Editor;
 using System.Collections.Generic;
 using UnityEditor;
 using UnityEditor.Build;
@@ -14,12 +12,13 @@ public class OVRShaderBuildProcessor : IPreprocessShaders
 	public void OnProcessShader(
 		Shader shader, ShaderSnippetData snippet, IList<ShaderCompilerData> shaderCompilerData)
 	{
-		if (!OVRPlatformToolSettings.TryInitialize())
+		var projectConfig = OVRProjectConfig.GetProjectConfig();
+		if (projectConfig == null)
 		{
 			return;
 		}
 
-		if (!OVRPlatformToolSettings.SkipUnneededShaders)
+		if (!projectConfig.skipUnneededShaders)
 		{
 			return;
 		}
@@ -29,18 +28,14 @@ public class OVRShaderBuildProcessor : IPreprocessShaders
 			return;
 		}
 
-		// Unity only uses shader Tier2 on Quest and Go (regardless of graphics API)
-
 		var strippedGraphicsTiers = new HashSet<GraphicsTier>();
-		switch (OVRPlatformToolSettings.TargetPlatform)
+
+		// Unity only uses shader Tier2 on Quest and Go (regardless of graphics API)
+		if (projectConfig.targetDeviceTypes.Contains(OVRProjectConfig.DeviceType.Quest) || 
+			projectConfig.targetDeviceTypes.Contains(OVRProjectConfig.DeviceType.Quest2))
 		{
-			case OVRPlatformTool.TargetPlatform.OculusGoGearVR:
-			case OVRPlatformTool.TargetPlatform.Quest:
-				strippedGraphicsTiers.Add(GraphicsTier.Tier1);
-				strippedGraphicsTiers.Add(GraphicsTier.Tier3);
-				break;
-			default:
-				break;
+			strippedGraphicsTiers.Add(GraphicsTier.Tier1);
+			strippedGraphicsTiers.Add(GraphicsTier.Tier3);
 		}
 
 		if (strippedGraphicsTiers.Count == 0)
@@ -57,4 +52,3 @@ public class OVRShaderBuildProcessor : IPreprocessShaders
 		}
 	}
 }
-#endif

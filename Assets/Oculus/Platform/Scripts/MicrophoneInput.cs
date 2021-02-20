@@ -1,5 +1,5 @@
 //This file is deprecated.  Use the high level voip system instead:
-// https://developer.oculus.com/documentation/platform/latest/concepts/dg-cc-voip/
+// https://developer.oculus.com/documentation/unity/ps-voip/ 
 //
 // NOTE for android developers: The existence of UnityEngine.Microphone causes Unity to insert the 
 // android.permission.RECORD_AUDIO permission into the AndroidManifest.xml generated at build time

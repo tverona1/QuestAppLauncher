@@ -1,12 +1,8 @@
 /************************************************************************************
 Copyright : Copyright (c) Facebook Technologies, LLC and its affiliates. All rights reserved.
 
-Licensed under the Oculus Utilities SDK License Version 1.31 (the "License"); you may not use
-the Utilities SDK except in compliance with the License, which is provided at the time of installation
-or download, or which otherwise accompanies this software in either electronic or hard copy form.
-
-You may obtain a copy of the License at
-https://developer.oculus.com/licenses/utilities-1.31
+Your use of this SDK or tool is subject to the Oculus SDK License Agreement, available at
+https://developer.oculus.com/licenses/oculussdk/
 
 Unless required by applicable law or agreed to in writing, the Utilities SDK distributed
 under the License is distributed on an "AS IS" BASIS, WITHOUT WARRANTIES OR CONDITIONS OF
@@ -33,7 +29,7 @@ public class OVRExternalComposition : OVRComposition
 	public GameObject backgroundCameraGameObject = null;
 	public Camera backgroundCamera = null;
 #if OVR_ANDROID_MRC
-	public bool renderCombinedFrame = true;
+	public bool renderCombinedFrame = false;
 	public AudioListener audioListener;
 	public OVRMRAudioFilter audioFilter;
 	public RenderTexture[] mrcRenderTextureArray = new RenderTexture[2];
@@ -42,6 +38,9 @@ public class OVRExternalComposition : OVRComposition
 
 	// when rendererSupportsCameraRect is false, mrcRenderTextureArray would only store the background frame (regular width)
 	public RenderTexture[] mrcForegroundRenderTextureArray = new RenderTexture[2];
+
+	// this is used for moving MRC camera where we would need to be able to synchronize the camera position from the game with that on the client for composition
+	public double[] cameraPoseTimeArray = new double[2];
 #endif
 
 	public override OVRManager.CompositionMethod CompositionMethod() { return OVRManager.CompositionMethod.External; }
@@ -50,12 +49,7 @@ public class OVRExternalComposition : OVRComposition
 		: base(parentObject, mainCamera)
 	{
 #if OVR_ANDROID_MRC
-		renderCombinedFrame = true;
-		if (GraphicsSettings.renderPipelineAsset != null)
-		{
-			Debug.Log("[OVRExternalComposition] scriptable rendering pipeline detected, Camera.rect is not supported");
-			renderCombinedFrame = false;
-		}
+		renderCombinedFrame = false;
 
 		int frameWidth;
 		int frameHeight;
@@ -65,6 +59,7 @@ public class OVRExternalComposition : OVRComposition
 		{
 			mrcRenderTextureArray[i] = new RenderTexture(renderCombinedFrame ? frameWidth : frameWidth/2, frameHeight, 24, RenderTextureFormat.ARGB32);
 			mrcRenderTextureArray[i].Create();
+			cameraPoseTimeArray[i] = 0.0;
 		}
 
 		frameIndex = 0;
@@ -201,7 +196,7 @@ public class OVRExternalComposition : OVRComposition
 				Debug.LogFormat("[OVRExternalComposition] AudioListener found, obj {0}", tmpAudioListener.gameObject.name);
 			}
 			audioListener = tmpAudioListener;
-			
+
 			if(audioListener != null)
 			{
 				audioFilter = audioListener.gameObject.AddComponent<OVRMRAudioFilter>();
@@ -226,11 +221,11 @@ public class OVRExternalComposition : OVRComposition
 		{
 			ret = OVRPlugin.Media.EncodeMrcFrame(mrcRenderTextureArray[castTextureIndex].GetNativeTexturePtr(),
 				renderCombinedFrame ? System.IntPtr.Zero : mrcForegroundRenderTextureArray[castTextureIndex].GetNativeTexturePtr(),
-				cachedAudioDataArray, audioFrames, audioChannels, AudioSettings.dspTime, ref syncId);
+				cachedAudioDataArray, audioFrames, audioChannels, AudioSettings.dspTime, cameraPoseTimeArray[castTextureIndex], ref syncId);
 		}
 		else
 		{
-			ret = OVRPlugin.Media.EncodeMrcFrame(mrcRenderTextureArray[castTextureIndex], cachedAudioDataArray, audioFrames, audioChannels, AudioSettings.dspTime, ref syncId);
+			ret = OVRPlugin.Media.EncodeMrcFrame(mrcRenderTextureArray[castTextureIndex], cachedAudioDataArray, audioFrames, audioChannels, AudioSettings.dspTime, cameraPoseTimeArray[castTextureIndex], ref syncId);
 		}
 
 		if (!ret)
@@ -278,6 +273,14 @@ public class OVRExternalComposition : OVRComposition
 		RefreshCameraObjects(gameObject, mainCamera);
 
 		OVRPlugin.SetHandNodePoseStateLatency(0.0);     // the HandNodePoseStateLatency doesn't apply to the external composition. Always enforce it to 0.0
+
+		// For third-person camera to use for calculating camera position with different anchors
+		OVRPose stageToLocalPose = OVRPlugin.GetTrackingTransformRelativePose(OVRPlugin.TrackingOrigin.Stage).ToOVRPose();
+		OVRPose localToStagePose = stageToLocalPose.Inverse();
+		OVRPose head = localToStagePose * OVRPlugin.GetNodePose(OVRPlugin.Node.Head, OVRPlugin.Step.Render).ToOVRPose();
+		OVRPose leftC = localToStagePose * OVRPlugin.GetNodePose(OVRPlugin.Node.HandLeft, OVRPlugin.Step.Render).ToOVRPose();
+		OVRPose rightC = localToStagePose * OVRPlugin.GetNodePose(OVRPlugin.Node.HandRight, OVRPlugin.Step.Render).ToOVRPose();
+		OVRPlugin.Media.SetMrcHeadsetControllerPose(head.ToPosef(), leftC.ToPosef(), rightC.ToPosef());
 
 #if OVR_ANDROID_MRC
 		RefreshAudioFilter();
@@ -365,6 +368,9 @@ public class OVRExternalComposition : OVRComposition
 					backgroundCamera.transform.FromOVRPose(worldSpacePose);
 					foregroundCamera.transform.FromOVRPose(worldSpacePose);
 				}
+#if OVR_ANDROID_MRC
+				cameraPoseTimeArray[drawTextureIndex] = extrinsics.LastChangedTimeSeconds;
+#endif
 			}
 			else
 			{
