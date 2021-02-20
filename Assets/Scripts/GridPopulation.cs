@@ -81,6 +81,9 @@ namespace QuestAppLauncher
             // Initialize the core platform
             Core.AsyncInitialize();
 
+            // Initialize app config on main thread
+            AppConfig.Initialize();
+
             // Populate the grid
             await PopulateAsync();
         }

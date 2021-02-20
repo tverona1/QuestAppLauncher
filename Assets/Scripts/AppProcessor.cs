@@ -79,7 +79,7 @@ namespace QuestAppLauncher
         /// <returns>Dictionary of processed apps</returns>
         public static Dictionary<string, ProcessedApp> ProcessApps(Config config, bool isRenameMode = false)
         {
-            var persistentDataPath = UnityEngine.Application.persistentDataPath;
+            var persistentDataPath = AppConfig.persistentDataPath;
             Debug.Log("Persistent data path: " + persistentDataPath);
 
             // Dictionary to hold package name -> app index, app name
@@ -206,7 +206,7 @@ namespace QuestAppLauncher
 
         private static void ProcessAppNameOverrideJsonFile(bool isRenameMode, Dictionary<string, ProcessedApp> apps, string appNameOverrideFilePath)
         {
-            if (isRenameMode && appNameOverrideFilePath.Equals(Path.Combine(UnityEngine.Application.persistentDataPath, RenameJsonFileName),
+            if (isRenameMode && appNameOverrideFilePath.Equals(Path.Combine(AppConfig.persistentDataPath, RenameJsonFileName),
                 StringComparison.InvariantCultureIgnoreCase))
             {
                 // In rename mode, so skip the rename json file itself
@@ -453,7 +453,7 @@ namespace QuestAppLauncher
                 var dirs = Directory.GetDirectories(extractionDirPath).OrderBy(f => f);
                 foreach (var dir in dirs)
                 {
-                    if (isRenameMode && dir.StartsWith(Path.Combine(UnityEngine.Application.persistentDataPath, RenameIconPackFileName),
+                    if (isRenameMode && dir.StartsWith(Path.Combine(AppConfig.persistentDataPath, RenameIconPackFileName),
                         StringComparison.InvariantCultureIgnoreCase))
                     {
                         // In rename mode, so skip the extracted rename icon pack itself
@@ -633,7 +633,7 @@ namespace QuestAppLauncher
         /// <param name="packageName"></param>
         static public void AddAppToExcludedFile(string packageName)
         {
-            var persistentDataPath = UnityEngine.Application.persistentDataPath;
+            var persistentDataPath = AppConfig.persistentDataPath;
             var excludedPackageNamesFilePath = Path.Combine(persistentDataPath, ExcludedPackagesFile);
 
             using (StreamWriter writer = File.AppendText(excludedPackageNamesFilePath))
@@ -649,7 +649,7 @@ namespace QuestAppLauncher
         /// <returns>true if file exists</returns>
         static public bool DeleteExcludedAppsFile()
         {
-            var persistentDataPath = UnityEngine.Application.persistentDataPath;
+            var persistentDataPath = AppConfig.persistentDataPath;
             var excludedPackageNamesFilePath = Path.Combine(persistentDataPath, ExcludedPackagesFile);
 
             if (File.Exists(excludedPackageNamesFilePath))
@@ -668,14 +668,14 @@ namespace QuestAppLauncher
         static public bool DeleteRenameFiles()
         {
             var ret = false;
-            var renameJsonFilePath = Path.Combine(UnityEngine.Application.persistentDataPath, RenameJsonFileName);
+            var renameJsonFilePath = Path.Combine(AppConfig.persistentDataPath, RenameJsonFileName);
             if (File.Exists(renameJsonFilePath))
             {
                 File.Delete(renameJsonFilePath);
                 ret = true;
             }
 
-            var renameIconPackFilePath = Path.Combine(UnityEngine.Application.persistentDataPath, RenameIconPackFileName);
+            var renameIconPackFilePath = Path.Combine(AppConfig.persistentDataPath, RenameIconPackFileName);
             if (File.Exists(renameIconPackFilePath))
             {
                 File.Delete(renameIconPackFilePath);

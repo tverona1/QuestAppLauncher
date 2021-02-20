@@ -201,16 +201,6 @@ namespace ControllerSelection
                 return OVRInput.Controller.LTouch;
             }
 
-            if (((filter & HandFilter.Right) == HandFilter.Right) && (controller & OVRInput.Controller.RTrackedRemote) == OVRInput.Controller.RTrackedRemote)
-            {
-                return OVRInput.Controller.RTrackedRemote;
-            }
-
-            if (((filter & HandFilter.Left) == HandFilter.Left) && (controller & OVRInput.Controller.LTrackedRemote) == OVRInput.Controller.LTrackedRemote)
-            {
-                return OVRInput.Controller.LTrackedRemote;
-            }
-
             controller = OVRInput.Controller.None;
             if (OVRPlugin.GetHandTrackingEnabled())
             {

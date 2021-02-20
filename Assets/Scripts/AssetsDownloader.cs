@@ -2,12 +2,12 @@
 using System.Collections;
 using System.Collections.Generic;
 using System.IO;
+using System.Linq;
 using System.Text;
 using System.Text.RegularExpressions;
 using System.Threading;
 using System.Threading.Tasks;
 using UnityEngine;
-using UnityEngine.Networking;
 using UnityEngine.SceneManagement;
 using Newtonsoft.Json;
 using Newtonsoft.Json.Linq;
@@ -107,7 +107,7 @@ namespace QuestAppLauncher
                     Debug.Log("Downloaded new assets. Re-populating panel");
                     SceneManager.LoadSceneAsync(SceneManager.GetActiveScene().name);
                 }
-            });
+            }, TaskScheduler.FromCurrentSynchronizationContext());
         }
 
         /// <summary>
@@ -300,18 +300,20 @@ namespace QuestAppLauncher
             try
             {
                 // Request asset url
-                using (var req = new UnityWebRequest(requestUrl))
+
+                // System.Net.WebClient();
+                using (var req = new WebRequest(requestUrl))
                 {
-                    req.downloadHandler = new DownloadHandlerBuffer();
+                    req.downloadHandler = new DownloadHandlerText();
                     await req.SendWebRequest();
                     if (req.isNetworkError || req.isHttpError)
                     {
                         // Error reading asset metadata, so return.
-                        Debug.LogFormat("Error reading asset info: {0}", req.error);
+                        Debug.LogFormat($"Error reading asset info: {req.error}. isNetworkError: {req.isNetworkError}. isHttpError: {req.isHttpError}");
 
                         var responseHeaders = req.GetResponseHeaders();
-                        if (null != responseHeaders && responseHeaders.ContainsKey("X-RateLimit-Remaining") &&
-                            responseHeaders["X-RateLimit-Remaining"] == "0")
+                        if (null != responseHeaders && responseHeaders.Contains("X-RateLimit-Remaining") &&
+                            responseHeaders.GetValues("X-RateLimit-Remaining").First() == "0")
                         {
                             // Github request limit reached. Display a friendly error message.
                             Debug.LogFormat("Request limit reached");
@@ -334,7 +336,7 @@ namespace QuestAppLauncher
                     }
 
                     // Parse the returned asset metadata
-                    var jObject = JObject.Parse(req.downloadHandler.text);
+                    var jObject = JObject.Parse((req.downloadHandler as DownloadHandlerText).text);
                     var tagName = jObject["tag_name"].Value<string>();
 
                     foreach (var property in jObject["assets"])
@@ -355,7 +357,7 @@ namespace QuestAppLauncher
             }
             catch (Exception e)
             {
-                Debug.LogFormat("Exception reading asset info: {0} ", e.Message);
+                Debug.LogErrorFormat("Exception reading asset info: {0} ", e.Message);
                 if (null != downloadProgress)
                 {
                     downloadProgress.OnError(string.Format("Error updating: {0} ({1})",
@@ -385,7 +387,7 @@ namespace QuestAppLauncher
             try
             {
                 // Request asset url
-                using (var req = new UnityWebRequest(assetInfo.Url))
+                using (var req = new WebRequest(assetInfo.Url))
                 {
                     req.SetRequestHeader("Accept", "application/octet-stream");
                     if (null != downloadProgress)
@@ -429,6 +431,7 @@ namespace QuestAppLauncher
                         downloadProgress.OnDownloadFinish();
                     }
 
+                    Debug.LogFormat($"Successfully downloaded {name}");
                     return true;
                 }
             }
@@ -494,7 +497,7 @@ namespace QuestAppLauncher
 
         static public string GetOrCreateDownloadPath()
         {
-            string path = Path.Combine(UnityEngine.Application.persistentDataPath, DownloadCacheFolder);
+            string path = Path.Combine(AppConfig.persistentDataPath, DownloadCacheFolder);
             Directory.CreateDirectory(path);
             return path;
         }

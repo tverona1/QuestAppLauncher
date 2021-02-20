@@ -102,7 +102,7 @@ namespace QuestAppLauncher
         /// <returns>Config object</returns>
         static public Config LoadConfig()
         {
-            var configFilePath = Path.Combine(UnityEngine.Application.persistentDataPath, ConfigFileName);
+            var configFilePath = Path.Combine(AppConfig.persistentDataPath, ConfigFileName);
             if (File.Exists(configFilePath))
             {
                 Debug.Log("Found config file: " + configFilePath);
@@ -132,7 +132,7 @@ namespace QuestAppLauncher
         /// <param name="config"></param>
         static public void SaveConfig(Config config)
         {
-            var configFilePath = Path.Combine(UnityEngine.Application.persistentDataPath, ConfigFileName);
+            var configFilePath = Path.Combine(AppConfig.persistentDataPath, ConfigFileName);
             Debug.Log("Saving config file: " + configFilePath);
 
             try

@@ -1,5 +1,6 @@
 ﻿using System;
 using System.IO;
+using System.Threading.Tasks;
 using UnityEngine;
 using UnityEngine.Networking;
 
@@ -11,7 +12,7 @@ namespace QuestAppLauncher
     /// Based on: DownloadHandlerFile.cs by Luke Holland
     /// (https://gist.github.com/luke161/a251b01c00f58d65a252812be8dce670)
     /// </summary>
-    public class DownloadHandlerFileWithProgress : DownloadHandlerScript
+    public class DownloadHandlerFileWithProgress : DownloadHandler
     {
         // Whether to remove file on error
         public bool removeFileOnAbort = false;
@@ -58,13 +59,12 @@ namespace QuestAppLauncher
             return contentLength <= 0 ? 0 : Mathf.Clamp01((float)this.received / (float)contentLength);
         }
 
-        [Obsolete]
-        protected override void ReceiveContentLength(int contentLength)
+        public override void ReceiveContentLength(int contentLength)
         {
             this.contentLength = contentLength;
         }
 
-        protected override bool ReceiveData(byte[] data, int dataLength)
+        public override async Task<bool> ReceiveData(byte[] data, int dataLength)
         {
             if (data == null || data.Length == 0)
             {
@@ -72,7 +72,7 @@ namespace QuestAppLauncher
             }
 
             this.received += dataLength;
-            this.stream.Write(data, 0, dataLength);
+            await this.stream.WriteAsync(data, 0, dataLength);
 
             if (null != this.downloadProgress)
             {
@@ -82,7 +82,7 @@ namespace QuestAppLauncher
             return true;
         }
 
-        protected override void CompleteContent()
+        public override void CompleteContent()
         {
             this.receivedAllData = true;
             CloseStream();

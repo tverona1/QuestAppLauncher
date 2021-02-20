@@ -344,19 +344,19 @@ namespace QuestAppLauncher
 
         static private string GetOrCreateSkymapPath()
         {
-            string path = Path.Combine(UnityEngine.Application.persistentDataPath, SkyboxFolder);
+            string path = Path.Combine(AppConfig.persistentDataPath, SkyboxFolder);
             Directory.CreateDirectory(path);
             return path;
         }
 
         static private string MakeRelativeSkymapPath(string path)
         {
-            return path.Substring(UnityEngine.Application.persistentDataPath.Length + 1);
+            return path.Substring(AppConfig.persistentDataPath.Length + 1);
         }
 
         static private string MakeAbsoluteSkymapPath(string path)
         {
-            return Path.Combine(UnityEngine.Application.persistentDataPath, path);
+            return Path.Combine(AppConfig.persistentDataPath, path);
         }
 
         static public bool IsDefaultSkybox(string path)
