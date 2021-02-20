@@ -35,3 +35,7 @@ sysinfo.txt
 *.apk
 *.unitypackage
 
+.Quest App Launcher.exe
+.Quest App Launcher_Data
+
+Logs/
