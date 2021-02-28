@@ -47,7 +47,7 @@ using Node = UnityEngine.XR.XRNode;
 /// <summary>
 /// Configuration data for Oculus virtual reality.
 /// </summary>
-public class OVRManager : MonoBehaviour
+public class OVRManager : MonoBehaviour, OVRMixedRealityCaptureConfiguration
 {
 	public enum XrApi
 	{
@@ -123,6 +123,19 @@ public class OVRManager : MonoBehaviour
 		Unknown = 0,
 		Oculus = 1,
 		OpenVR = 2,
+	}
+
+	public enum ColorSpace
+	{
+		Unknown = OVRPlugin.ColorSpace.Unknown,
+		Unmanaged = OVRPlugin.ColorSpace.Unmanaged,
+		Rec_2020 = OVRPlugin.ColorSpace.Rec_2020,
+		Rec_709 = OVRPlugin.ColorSpace.Rec_709,
+		Rift_CV1 = OVRPlugin.ColorSpace.Rift_CV1,
+		Rift_S = OVRPlugin.ColorSpace.Rift_S,
+		Quest = OVRPlugin.ColorSpace.Quest,
+		P3 = OVRPlugin.ColorSpace.P3,
+		Adobe_RGB = OVRPlugin.ColorSpace.Adobe_RGB,
 	}
 
 	/// <summary>
@@ -379,11 +392,35 @@ public class OVRManager : MonoBehaviour
 	[Tooltip("If true, dynamic resolution will be enabled On PC")]
 	public bool enableAdaptiveResolution = false;
 
-	[HideInInspector]
-	public bool enableColorGamut = false;
+	[SerializeField, HideInInspector]
+	private OVRManager.ColorSpace _colorGamut = OVRManager.ColorSpace.Rift_CV1;
 
-	[HideInInspector]
-	public OVRPlugin.ColorSpace colorGamut = OVRPlugin.ColorSpace.Unknown;
+	/// <summary>
+	/// The target color gamut the HMD will perform a color space transformation to
+	/// </summary>
+	public OVRManager.ColorSpace colorGamut
+	{
+		get
+		{
+			return _colorGamut;
+		}
+		set
+		{
+			_colorGamut = value;
+			OVRPlugin.SetClientColorDesc((OVRPlugin.ColorSpace)_colorGamut);
+		}
+	}
+
+	/// <summary>
+	/// The native color gamut of the target HMD
+	/// </summary>
+	public OVRManager.ColorSpace nativeColorGamut
+	{
+		get
+		{
+			return (OVRManager.ColorSpace)OVRPlugin.GetHmdColorDesc();
+		}
+	}
 
 	/// <summary>
 	/// Adaptive Resolution is based on Unity engine's renderViewportScale/eyeTextureResolutionScale feature
@@ -499,6 +536,35 @@ public class OVRManager : MonoBehaviour
 	/// </summary>
 	[HideInInspector, Tooltip("Extra hidden layers")]
 	public LayerMask extraHiddenLayers;
+
+	/// <summary>
+	/// Extra visible layers
+	/// </summary>
+	[HideInInspector, Tooltip("Extra visible layers")]
+	public LayerMask extraVisibleLayers;
+
+	/// <summary>
+	/// If premultipled alpha blending is used for the eye fov layer.
+	/// Useful for changing how the eye fov layer blends with underlays.
+	/// </summary>
+	[HideInInspector]
+	public static bool eyeFovPremultipliedAlphaModeEnabled
+	{
+		get
+		{
+			return OVRPlugin.eyeFovPremultipliedAlphaModeEnabled;
+		}
+		set
+		{
+			OVRPlugin.eyeFovPremultipliedAlphaModeEnabled = value;
+		}
+	}
+
+	/// <summary>
+	/// Whether MRC should dynamically update the culling mask using the Main Camera's culling mask, extraHiddenLayers, and extraVisibleLayers
+	/// </summary>
+	[HideInInspector, Tooltip("Dynamic Culling Mask")]
+	public bool dynamicCullingMask = true;
 
 	/// <summary>
 	/// The backdrop color will be used when rendering the foreground frames (on Rift). It only applies to External Composition.
@@ -651,6 +717,7 @@ public class OVRManager : MonoBehaviour
 	[HideInInspector, Tooltip("The tolerance value (in meter) when using the virtual green screen with a depth camera. Make it bigger if the foreground objects got culled incorrectly.")]
 	public float virtualGreenScreenDepthTolerance = 0.2f;
 
+
 	public enum MrcActivationMode
 	{
 		Automatic,
@@ -663,8 +730,52 @@ public class OVRManager : MonoBehaviour
 	[HideInInspector, Tooltip("(Quest-only) control if the mixed reality capture mode can be activated automatically through remote network connection.")]
 	public MrcActivationMode mrcActivationMode;
 
+	public enum MrcCameraType
+	{
+		Normal,
+		Foreground,
+		Background
+	}
+
+	public delegate GameObject InstantiateMrcCameraDelegate(GameObject mainCameraGameObject, MrcCameraType cameraType);
+
+	/// <summary>
+	/// Allows overriding the internal mrc camera creation
+	/// </summary>
+	public InstantiateMrcCameraDelegate instantiateMixedRealityCameraGameObject = null;
+	
+	// OVRMixedRealityCaptureConfiguration Interface implementation
+	bool OVRMixedRealityCaptureConfiguration.enableMixedReality { get { return enableMixedReality; } set { enableMixedReality = value; } }
+	LayerMask OVRMixedRealityCaptureConfiguration.extraHiddenLayers { get { return extraHiddenLayers; } set { extraHiddenLayers = value; } }
+	LayerMask OVRMixedRealityCaptureConfiguration.extraVisibleLayers { get { return extraVisibleLayers; } set { extraVisibleLayers = value; } }
+	bool OVRMixedRealityCaptureConfiguration.dynamicCullingMask { get { return dynamicCullingMask; } set { dynamicCullingMask = value; } }
+	CompositionMethod OVRMixedRealityCaptureConfiguration.compositionMethod { get { return compositionMethod; } set { compositionMethod = value; } }
+	Color OVRMixedRealityCaptureConfiguration.externalCompositionBackdropColorRift { get { return externalCompositionBackdropColorRift; } set { externalCompositionBackdropColorRift = value; } }
+	Color OVRMixedRealityCaptureConfiguration.externalCompositionBackdropColorQuest { get { return externalCompositionBackdropColorQuest; } set { externalCompositionBackdropColorQuest = value; } }
+	CameraDevice OVRMixedRealityCaptureConfiguration.capturingCameraDevice { get { return capturingCameraDevice; } set { capturingCameraDevice = value; } }
+	bool OVRMixedRealityCaptureConfiguration.flipCameraFrameHorizontally { get { return flipCameraFrameHorizontally; } set { flipCameraFrameHorizontally = value; } }
+	bool OVRMixedRealityCaptureConfiguration.flipCameraFrameVertically { get { return flipCameraFrameVertically; } set { flipCameraFrameVertically = value; } }
+	float OVRMixedRealityCaptureConfiguration.handPoseStateLatency { get { return handPoseStateLatency; } set { handPoseStateLatency = value; } }
+	float OVRMixedRealityCaptureConfiguration.sandwichCompositionRenderLatency { get { return sandwichCompositionRenderLatency; } set { sandwichCompositionRenderLatency = value; } }
+	int OVRMixedRealityCaptureConfiguration.sandwichCompositionBufferedFrames { get { return sandwichCompositionBufferedFrames; } set { sandwichCompositionBufferedFrames = value; } }
+	Color OVRMixedRealityCaptureConfiguration.chromaKeyColor { get { return chromaKeyColor; } set { chromaKeyColor = value; } }
+	float OVRMixedRealityCaptureConfiguration.chromaKeySimilarity { get { return chromaKeySimilarity; } set { chromaKeySimilarity = value; } }
+	float OVRMixedRealityCaptureConfiguration.chromaKeySmoothRange { get { return chromaKeySmoothRange; } set { chromaKeySmoothRange = value; } }
+	float OVRMixedRealityCaptureConfiguration.chromaKeySpillRange { get { return chromaKeySpillRange; } set { chromaKeySpillRange = value; } }
+	bool OVRMixedRealityCaptureConfiguration.useDynamicLighting { get { return useDynamicLighting; } set { useDynamicLighting = value; } }
+	DepthQuality OVRMixedRealityCaptureConfiguration.depthQuality { get { return depthQuality; } set { depthQuality = value; } }
+	float OVRMixedRealityCaptureConfiguration.dynamicLightingSmoothFactor { get { return dynamicLightingSmoothFactor; } set { dynamicLightingSmoothFactor = value; } }
+	float OVRMixedRealityCaptureConfiguration.dynamicLightingDepthVariationClampingValue { get { return dynamicLightingDepthVariationClampingValue; } set { dynamicLightingDepthVariationClampingValue = value; } }
+	VirtualGreenScreenType OVRMixedRealityCaptureConfiguration.virtualGreenScreenType { get { return virtualGreenScreenType; } set { virtualGreenScreenType = value; } }
+	float OVRMixedRealityCaptureConfiguration.virtualGreenScreenTopY { get { return virtualGreenScreenTopY; } set { virtualGreenScreenTopY = value; } }
+	float OVRMixedRealityCaptureConfiguration.virtualGreenScreenBottomY { get { return virtualGreenScreenBottomY; } set { virtualGreenScreenBottomY = value; } }
+	bool OVRMixedRealityCaptureConfiguration.virtualGreenScreenApplyDepthCulling { get { return virtualGreenScreenApplyDepthCulling; } set { virtualGreenScreenApplyDepthCulling = value; } }
+	float OVRMixedRealityCaptureConfiguration.virtualGreenScreenDepthTolerance { get { return virtualGreenScreenDepthTolerance; } set { virtualGreenScreenDepthTolerance = value; } }
+	MrcActivationMode OVRMixedRealityCaptureConfiguration.mrcActivationMode { get { return mrcActivationMode; } set { mrcActivationMode = value; } }
+	InstantiateMrcCameraDelegate OVRMixedRealityCaptureConfiguration.instantiateMixedRealityCameraGameObject { get { return instantiateMixedRealityCameraGameObject; } set { instantiateMixedRealityCameraGameObject = value; } }
 
 #endif
+
 
 	/// <summary>
 	/// The native XR API being used
@@ -985,7 +1096,7 @@ public class OVRManager : MonoBehaviour
 	/// Sets the Color Scale and Offset which is commonly used for effects like fade-to-black.
 	/// In our compositor, once a given frame is rendered, warped, and ready to be displayed, we then multiply
 	/// each pixel by colorScale and add it to colorOffset, whereby newPixel = oldPixel * colorScale + colorOffset.
-	/// Note that for mobile devices (Quest, etc.), colorOffset is not supported, so colorScale is all that can
+	/// Note that for mobile devices (Quest, etc.), colorOffset is only supported with OpenXR, so colorScale is all that can
 	/// be used. A colorScale of (1, 1, 1, 1) and colorOffset of (0, 0, 0, 0) will lead to an identity multiplication
 	/// and have no effect.
 	/// </summary>
@@ -1360,7 +1471,7 @@ public class OVRManager : MonoBehaviour
 
 		Initialize();
 
-		Debug.LogFormat("Current display frequency {0}, available frequencies [{1}]", 
+		Debug.LogFormat("Current display frequency {0}, available frequencies [{1}]",
 			display.displayFrequency, string.Join(", ", display.displayFrequenciesAvailable.Select(f => f.ToString()).ToArray()));
 
 		if (resetTrackerOnLoad)
@@ -1382,11 +1493,9 @@ public class OVRManager : MonoBehaviour
 			OVRPlugin.SetDeveloperMode(OVRPlugin.Bool.True);
 		}
 
-		// Set the client color space description
-		if (enableColorGamut)
-		{
-			OVRPlugin.SetClientColorDesc(colorGamut);
-		}
+		// Refresh the client color space
+		OVRManager.ColorSpace clientColorSpace = colorGamut;
+		colorGamut = clientColorSpace;
 
 #if UNITY_EDITOR_WIN || UNITY_STANDALONE_WIN
 		// Force OcculusionMesh on all the time, you can change the value to false if you really need it be off for some reasons,
@@ -1498,10 +1607,6 @@ public class OVRManager : MonoBehaviour
 
 		SetCurrentXRDevice();
 	}
-
-#if UNITY_EDITOR_WIN || UNITY_STANDALONE_WIN || OVR_ANDROID_MRC
-	private bool suppressDisableMixedRealityBecauseOfNoMainCameraWarning = false;
-#endif
 
 	private void Update()
 	{
@@ -1821,7 +1926,7 @@ public class OVRManager : MonoBehaviour
 		UpdateHMDEvents();
 
 #if UNITY_EDITOR_WIN || UNITY_STANDALONE_WIN || OVR_ANDROID_MRC
-		StaticUpdateMixedRealityCapture(this);
+		StaticUpdateMixedRealityCapture(this, gameObject, trackingOriginType);
 #endif
 	}
 
@@ -1845,13 +1950,17 @@ public class OVRManager : MonoBehaviour
 		}
 	}
 
-	private bool multipleMainCameraWarningPresented = false;
-	private Camera lastFoundMainCamera = null;
-	private Camera FindMainCamera()
-	{
-		if (lastFoundMainCamera != null && lastFoundMainCamera.CompareTag("MainCamera"))
+	private static bool multipleMainCameraWarningPresented = false;
+	private static WeakReference<Camera> lastFoundMainCamera = null;
+	private static Camera FindMainCamera() {
+
+		Camera lastCamera;
+		if (lastFoundMainCamera != null && 
+		    lastFoundMainCamera.TryGetTarget(out lastCamera) && 
+		    lastCamera != null && 
+		    lastCamera.CompareTag("MainCamera"))
 		{
-			return lastFoundMainCamera;
+			return lastCamera;
 		}
 
 		Camera result = null;
@@ -1898,7 +2007,7 @@ public class OVRManager : MonoBehaviour
 		{
 			Debug.Log("[OVRManager] unable to find a vaild camera");
 		}
-		lastFoundMainCamera = result;
+		lastFoundMainCamera = new WeakReference<Camera>(result);
 		return result;
 	}
 
@@ -1980,13 +2089,14 @@ public class OVRManager : MonoBehaviour
 	public static bool staticMixedRealityCaptureInitialized = false;
 	public static bool staticPrevEnableMixedRealityCapture = false;
 	public static OVRMixedRealityCaptureSettings staticMrcSettings = null;
+	private static bool suppressDisableMixedRealityBecauseOfNoMainCameraWarning = false;
 
-	public static void StaticInitializeMixedRealityCapture(OVRManager instance)
+	public static void StaticInitializeMixedRealityCapture(OVRMixedRealityCaptureConfiguration configuration)
 	{
 		if (!staticMixedRealityCaptureInitialized)
 		{
 			staticMrcSettings = ScriptableObject.CreateInstance<OVRMixedRealityCaptureSettings>();
-			staticMrcSettings.ReadFrom(OVRManager.instance);
+			staticMrcSettings.ReadFrom(configuration);
 
 #if OVR_ANDROID_MRC
 			bool mediaInitialized = OVRPlugin.Media.Initialize();
@@ -2002,12 +2112,12 @@ public class OVRManager : MonoBehaviour
 
 				OVRPlugin.Media.SetMrcInputVideoBufferType(OVRPlugin.Media.InputVideoBufferType.TextureHandle);
 				Debug.LogFormat("[MRC] Active InputVideoBufferType:{0}", OVRPlugin.Media.GetMrcInputVideoBufferType());
-				if (instance.mrcActivationMode == MrcActivationMode.Automatic)
+				if (configuration.mrcActivationMode == MrcActivationMode.Automatic)
 				{
 					OVRPlugin.Media.SetMrcActivationMode(OVRPlugin.Media.MrcActivationMode.Automatic);
 					Debug.LogFormat("[MRC] ActivateMode: Automatic");
 				}
-				else if (instance.mrcActivationMode == MrcActivationMode.Disabled)
+				else if (configuration.mrcActivationMode == MrcActivationMode.Disabled)
 				{
 					OVRPlugin.Media.SetMrcActivationMode(OVRPlugin.Media.MrcActivationMode.Disabled);
 					Debug.LogFormat("[MRC] ActivateMode: Disabled");
@@ -2025,11 +2135,11 @@ public class OVRManager : MonoBehaviour
 		}
 		else
 		{
-			staticMrcSettings.ApplyTo(instance);
+			staticMrcSettings.ApplyTo(configuration);
 		}
 	}
 
-	public static void StaticUpdateMixedRealityCapture(OVRManager instance)
+	public static void StaticUpdateMixedRealityCapture(OVRMixedRealityCaptureConfiguration configuration, GameObject gameObject, TrackingOrigin trackingOrigin)
 	{
 		if (!staticMixedRealityCaptureInitialized)
 		{
@@ -2037,8 +2147,8 @@ public class OVRManager : MonoBehaviour
 		}
 
 #if OVR_ANDROID_MRC
-		instance.enableMixedReality = OVRPlugin.Media.GetInitialized() && OVRPlugin.Media.IsMrcActivated();
-		instance.compositionMethod = CompositionMethod.External;		// force external composition on Android MRC
+		configuration.enableMixedReality = OVRPlugin.Media.GetInitialized() && OVRPlugin.Media.IsMrcActivated();
+		configuration.compositionMethod = CompositionMethod.External;		// force external composition on Android MRC
 
 		if (OVRPlugin.Media.GetInitialized())
 		{
@@ -2046,50 +2156,50 @@ public class OVRManager : MonoBehaviour
 		}
 #endif
 
-		if (instance.enableMixedReality && !staticPrevEnableMixedRealityCapture)
+		if (configuration.enableMixedReality && !staticPrevEnableMixedRealityCapture)
 		{
 			OVRPlugin.SendEvent("mixed_reality_capture", "activated");
 			Debug.Log("MixedRealityCapture: activate");
 		}
 
-		if (!instance.enableMixedReality && staticPrevEnableMixedRealityCapture)
+		if (!configuration.enableMixedReality && staticPrevEnableMixedRealityCapture)
 		{
 			Debug.Log("MixedRealityCapture: deactivate");
 		}
 
-		if (instance.enableMixedReality || staticPrevEnableMixedRealityCapture)
+		if (configuration.enableMixedReality || staticPrevEnableMixedRealityCapture)
 		{
-			Camera mainCamera = instance.FindMainCamera();
-			if (Camera.main != null)
+			Camera mainCamera = FindMainCamera();
+			if (mainCamera != null)
 			{
-				instance.suppressDisableMixedRealityBecauseOfNoMainCameraWarning = false;
+				suppressDisableMixedRealityBecauseOfNoMainCameraWarning = false;
 
-				if (instance.enableMixedReality)
+				if (configuration.enableMixedReality)
 				{
-					OVRMixedReality.Update(instance.gameObject, mainCamera, instance.compositionMethod, instance.useDynamicLighting, instance.capturingCameraDevice, instance.depthQuality);
+					OVRMixedReality.Update(gameObject, mainCamera, configuration, trackingOrigin);
 				}
 
-				if (staticPrevEnableMixedRealityCapture && !instance.enableMixedReality)
+				if (staticPrevEnableMixedRealityCapture && !configuration.enableMixedReality)
 				{
 					OVRMixedReality.Cleanup();
 				}
 
-				staticPrevEnableMixedRealityCapture = instance.enableMixedReality;
+				staticPrevEnableMixedRealityCapture = configuration.enableMixedReality;
 			}
 			else
 			{
-				if (!instance.suppressDisableMixedRealityBecauseOfNoMainCameraWarning)
+				if (!suppressDisableMixedRealityBecauseOfNoMainCameraWarning)
 				{
 					Debug.LogWarning("Main Camera is not set, Mixed Reality disabled");
-					instance.suppressDisableMixedRealityBecauseOfNoMainCameraWarning = true;
+					suppressDisableMixedRealityBecauseOfNoMainCameraWarning = true;
 				}
 			}
 		}
 
-		staticMrcSettings.ReadFrom(OVRManager.instance);
+		staticMrcSettings.ReadFrom(configuration);
 	}
 
-	public static void StaticShutdownMixedRealityCapture(OVRManager instance)
+	public static void StaticShutdownMixedRealityCapture(OVRMixedRealityCaptureConfiguration configuration)
 	{
 		if (staticMixedRealityCaptureInitialized)
 		{
@@ -2109,5 +2219,6 @@ public class OVRManager : MonoBehaviour
 	}
 
 #endif
+
 
 }

@@ -24,14 +24,14 @@ public abstract class OVRComposition {
 	public bool cameraInTrackingSpace = false;
 	public OVRCameraRig cameraRig = null;
 
-	protected OVRComposition(GameObject parentObject, Camera mainCamera)
-	{
+	protected OVRComposition(GameObject parentObject, Camera mainCamera, OVRMixedRealityCaptureConfiguration configuration) {
+		
         RefreshCameraRig(parentObject, mainCamera);
 	}
 
 	public abstract OVRManager.CompositionMethod CompositionMethod();
 
-	public abstract void Update(GameObject gameObject, Camera mainCamera);
+	public abstract void Update(GameObject gameObject, Camera mainCamera, OVRMixedRealityCaptureConfiguration configuration, OVRManager.TrackingOrigin trackingOrigin);
 	public abstract void Cleanup();
 
 	public virtual void RecenterPose() { }

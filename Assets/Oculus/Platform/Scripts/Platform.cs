@@ -541,6 +541,10 @@ namespace Oculus.Platform
     }
   }
 
+  public static partial class AbuseReport
+  {
+  }
+
   public static partial class Achievements
   {
     /// Add 'count' to the achievement with the given name. This must be a COUNT
@@ -1407,6 +1411,23 @@ namespace Oculus.Platform
       if (Core.IsInitialized())
       {
         return new Request<bool>(CAPI.ovr_Leaderboard_WriteEntry(leaderboardName, score, extraData, (uint)(extraData != null ? extraData.Length : 0), forceUpdate));
+      }
+
+      return null;
+    }
+
+    /// Writes a single entry to a leaderboard, can include supplementary metrics
+    /// \param leaderboardName The leaderboard for which to write the entry.
+    /// \param score The score to write.
+    /// \param supplementaryMetric A metric that can be used for tiebreakers.
+    /// \param extraData A 2KB custom data field that is associated with the leaderboard entry. This can be a game replay or anything that provides more detail about the entry to the viewer.
+    /// \param forceUpdate If true, the score always updates. This happens ecen if it is not the user's best score.
+    ///
+    public static Request<bool> WriteEntryWithSupplementaryMetric(string leaderboardName, long score, long supplementaryMetric, byte[] extraData = null, bool forceUpdate = false)
+    {
+      if (Core.IsInitialized())
+      {
+        return new Request<bool>(CAPI.ovr_Leaderboard_WriteEntryWithSupplementaryMetric(leaderboardName, score, supplementaryMetric, extraData, (uint)(extraData != null ? extraData.Length : 0), forceUpdate));
       }
 
       return null;
@@ -2555,6 +2576,122 @@ namespace Oculus.Platform
       if (Core.IsInitialized())
       {
         return new Request(CAPI.ovr_User_LaunchProfile(userID));
+      }
+
+      return null;
+    }
+
+  }
+
+  public static partial class UserDataStore
+  {
+    /// Delete an entry by a key from a private user data store.
+    /// \param userID The ID of the user who owns this private user data store.
+    /// \param key The key of entry.
+    ///
+    public static Request<Models.UserDataStoreUpdateResponse> PrivateDeleteEntryByKey(UInt64 userID, string key)
+    {
+      if (Core.IsInitialized())
+      {
+        return new Request<Models.UserDataStoreUpdateResponse>(CAPI.ovr_UserDataStore_PrivateDeleteEntryByKey(userID, key));
+      }
+
+      return null;
+    }
+
+    /// Get entries from a private user data store.
+    /// \param userID The ID of the user who owns this private user data store.
+    ///
+    public static Request<Dictionary<string, string>> PrivateGetEntries(UInt64 userID)
+    {
+      if (Core.IsInitialized())
+      {
+        return new Request<Dictionary<string, string>>(CAPI.ovr_UserDataStore_PrivateGetEntries(userID));
+      }
+
+      return null;
+    }
+
+    /// Get an entry by a key from a private user data store.
+    /// \param userID The ID of the user who owns this private user data store.
+    /// \param key The key of entry.
+    ///
+    public static Request<Dictionary<string, string>> PrivateGetEntryByKey(UInt64 userID, string key)
+    {
+      if (Core.IsInitialized())
+      {
+        return new Request<Dictionary<string, string>>(CAPI.ovr_UserDataStore_PrivateGetEntryByKey(userID, key));
+      }
+
+      return null;
+    }
+
+    /// Write a single entry to a private user data store.
+    /// \param userID The ID of the user who owns this private user data store.
+    /// \param key The key of entry.
+    /// \param value The value of entry.
+    ///
+    public static Request<Models.UserDataStoreUpdateResponse> PrivateWriteEntry(UInt64 userID, string key, string value)
+    {
+      if (Core.IsInitialized())
+      {
+        return new Request<Models.UserDataStoreUpdateResponse>(CAPI.ovr_UserDataStore_PrivateWriteEntry(userID, key, value));
+      }
+
+      return null;
+    }
+
+    /// Delete an entry by a key from a public user data store.
+    /// \param userID The ID of the user who owns this public user data store.
+    /// \param key The key of entry.
+    ///
+    public static Request<Models.UserDataStoreUpdateResponse> PublicDeleteEntryByKey(UInt64 userID, string key)
+    {
+      if (Core.IsInitialized())
+      {
+        return new Request<Models.UserDataStoreUpdateResponse>(CAPI.ovr_UserDataStore_PublicDeleteEntryByKey(userID, key));
+      }
+
+      return null;
+    }
+
+    /// Get entries from a public user data store.
+    /// \param userID The ID of the user who owns this public user data store.
+    ///
+    public static Request<Dictionary<string, string>> PublicGetEntries(UInt64 userID)
+    {
+      if (Core.IsInitialized())
+      {
+        return new Request<Dictionary<string, string>>(CAPI.ovr_UserDataStore_PublicGetEntries(userID));
+      }
+
+      return null;
+    }
+
+    /// Get an entry by a key from a public user data store.
+    /// \param userID The ID of the user who owns this public user data store.
+    /// \param key The key of entry.
+    ///
+    public static Request<Dictionary<string, string>> PublicGetEntryByKey(UInt64 userID, string key)
+    {
+      if (Core.IsInitialized())
+      {
+        return new Request<Dictionary<string, string>>(CAPI.ovr_UserDataStore_PublicGetEntryByKey(userID, key));
+      }
+
+      return null;
+    }
+
+    /// Write a single entry to a public user data store.
+    /// \param userID The ID of the user who owns this public user data store.
+    /// \param key The key of entry.
+    /// \param value The value of entry.
+    ///
+    public static Request<Models.UserDataStoreUpdateResponse> PublicWriteEntry(UInt64 userID, string key, string value)
+    {
+      if (Core.IsInitialized())
+      {
+        return new Request<Models.UserDataStoreUpdateResponse>(CAPI.ovr_UserDataStore_PublicWriteEntry(userID, key, value));
       }
 
       return null;

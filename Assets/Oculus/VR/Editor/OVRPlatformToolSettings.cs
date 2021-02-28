@@ -359,6 +359,25 @@ namespace Assets.Oculus.VR.Editor
 			set { Instance.runOvrLint = value; }
 		}
 
+		public static string DebugSymbolsDirectory
+		{
+			get
+			{
+				if (EditorPrefs.HasKey("OVRPlatformToolSettings_DebugSymbolsDirectory"))
+				{
+					return EditorPrefs.GetString("OVRPlatformToolSettings_DebugSymbolsDirectory");
+				}
+				else
+				{
+					return "";
+				}
+			}
+			set
+			{
+				EditorPrefs.SetString("OVRPlatformToolSettings_DebugSymbolsDirectory", value);
+			}
+		}
+
 		[SerializeField]
 		private List<RedistPackage> riftRedistPackages;
 

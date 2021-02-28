@@ -289,8 +289,17 @@ public class OVRManifestPreprocessor
                 modifyIfFound,
                 "value", "vr_only");
 
-            // make sure android label and icon are set in the manifest
-            AddOrRemoveTag(doc,
+			// Add VR intent filter tag in the manifest
+			AddOrRemoveTag(doc,
+				androidNamepsaceURI,
+				"/manifest/application/activity/intent-filter",
+				"category",
+				"com.oculus.intent.category.VR",
+				required: true,
+				modifyIfFound: true);
+
+			// make sure android label and icon are set in the manifest
+			AddOrRemoveTag(doc,
                 androidNamepsaceURI,
                 "/manifest",
                 "application",

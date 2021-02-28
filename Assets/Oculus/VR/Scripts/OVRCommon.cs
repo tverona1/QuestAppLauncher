@@ -176,6 +176,16 @@ public static class OVRExtensions
 		return new OVRPlugin.Vector3f() { x = v.x, y = v.y, z = -v.z };
 	}
 
+	public static Vector4 FromVector4f(this OVRPlugin.Vector4f v)
+	{
+		return new Vector4() { x = v.x, y = v.y, z = v.z, w = v.w };
+	}
+
+	public static OVRPlugin.Vector4f ToVector4f(this Vector4 v)
+	{
+		return new OVRPlugin.Vector4f() { x = v.x, y = v.y, z = v.z, w = v.w };
+	}
+
 	public static Quaternion FromQuatf(this OVRPlugin.Quatf q)
 	{
 		return new Quaternion() { x = q.x, y = q.y, z = q.z, w = q.w };

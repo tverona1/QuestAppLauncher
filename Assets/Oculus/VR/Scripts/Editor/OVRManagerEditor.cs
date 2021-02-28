@@ -36,14 +36,11 @@ public class OVRManagerEditor : Editor
 
 		EditorGUILayout.Space();
 		EditorGUILayout.LabelField("Display", EditorStyles.boldLabel);
-		OVREditorUtil.SetupBoolField(target, new GUIContent("Enable Specific Color Gamut",
-			"If checked, the target HMD will perform a color space transformation"), ref manager.enableColorGamut, ref modified);
 
-		if (manager.enableColorGamut)
-		{
-			OVREditorUtil.SetupEnumField(target, new GUIContent("Color Gamut",
-			"The target color gamut when displayed on the HMD"), ref manager.colorGamut, ref modified);
-		}
+		OVRManager.ColorSpace colorGamut = manager.colorGamut;
+		OVREditorUtil.SetupEnumField(target, new GUIContent("Color Gamut",
+			"The target color gamut when displayed on the HMD"), ref colorGamut, ref modified);
+		manager.colorGamut = colorGamut;
 #endif
 
 #if UNITY_ANDROID
@@ -79,6 +76,8 @@ public class OVRManagerEditor : Editor
 			OVREditorUtil.SetupBoolField(target, "enableMixedReality", ref manager.enableMixedReality, ref modified);
 			OVREditorUtil.SetupEnumField(target, "compositionMethod", ref manager.compositionMethod, ref modified);
 			OVREditorUtil.SetupLayerMaskField(target, "extraHiddenLayers", ref manager.extraHiddenLayers, layerMaskOptions, ref modified);
+			OVREditorUtil.SetupLayerMaskField(target, "extraVisibleLayers", ref manager.extraVisibleLayers, layerMaskOptions, ref modified);
+			OVREditorUtil.SetupBoolField(target, "dynamicCullingMask", ref manager.dynamicCullingMask, ref modified);
 
 			if (manager.compositionMethod == OVRManager.CompositionMethod.External)
 			{

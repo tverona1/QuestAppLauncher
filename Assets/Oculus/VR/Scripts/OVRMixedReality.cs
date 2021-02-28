@@ -46,7 +46,7 @@ internal static class OVRMixedReality
 	/// Updates the internal state of the Mixed Reality Camera. Called by OVRManager.
 	/// </summary>
 
-	public static void Update(GameObject parentObject, Camera mainCamera, OVRManager.CompositionMethod compositionMethod, bool useDynamicLighting, OVRManager.CameraDevice cameraDevice, OVRManager.DepthQuality depthQuality)
+	public static void Update(GameObject parentObject, Camera mainCamera, OVRMixedRealityCaptureConfiguration configuration, OVRManager.TrackingOrigin trackingOrigin)
 	{
 		if (!OVRPlugin.initialized)
 		{
@@ -82,34 +82,34 @@ internal static class OVRMixedReality
 		useFakeExternalCamera = OVRPlugin.Media.UseMrcDebugCamera();
 #endif
 
-		if (currentComposition != null && currentComposition.CompositionMethod() != compositionMethod)
+		if (currentComposition != null && (currentComposition.CompositionMethod() != configuration.compositionMethod))
 		{
 			currentComposition.Cleanup();
 			currentComposition = null;
 		}
 
-		if (compositionMethod == OVRManager.CompositionMethod.External)
+		if (configuration.compositionMethod == OVRManager.CompositionMethod.External)
 		{
 			if (currentComposition == null)
 			{
-				currentComposition = new OVRExternalComposition(parentObject, mainCamera);
+				currentComposition = new OVRExternalComposition(parentObject, mainCamera, configuration);
 			}
 		}
 #if UNITY_EDITOR_WIN || UNITY_STANDALONE_WIN
-		else if (compositionMethod == OVRManager.CompositionMethod.Direct)
+		else if (configuration.compositionMethod == OVRManager.CompositionMethod.Direct)
 		{
 			if (currentComposition == null)
 			{
-				currentComposition = new OVRDirectComposition(parentObject, mainCamera, cameraDevice, useDynamicLighting, depthQuality);
+				currentComposition = new OVRDirectComposition(parentObject, mainCamera, configuration);
 			}
 		}
 #endif
 		else
 		{
-			Debug.LogError("Unknown CompositionMethod : " + compositionMethod);
+			Debug.LogError("Unknown CompositionMethod : " + configuration.compositionMethod);
 			return;
 		}
-		currentComposition.Update(parentObject, mainCamera);
+		currentComposition.Update(parentObject, mainCamera, configuration, trackingOrigin);
 	}
 
 	public static void Cleanup()

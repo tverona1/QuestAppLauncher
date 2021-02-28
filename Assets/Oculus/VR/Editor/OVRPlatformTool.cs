@@ -74,6 +74,11 @@ namespace Assets.Oculus.VR.Editor
 #else
 			OVRPlatformToolSettings.TargetPlatform = TargetPlatform.Rift;
 #endif
+			// If no debug symbol directory is set, default to the expected place
+			if(string.IsNullOrEmpty(OVRPlatformToolSettings.DebugSymbolsDirectory))
+			{
+				OVRPlatformToolSettings.DebugSymbolsDirectory = Path.Combine(Application.dataPath, "../Temp/StagingArea/symbols");
+			}
 			EditorUtility.SetDirty(OVRPlatformToolSettings.Instance);
 
 			// Load redist packages by calling list-redists in the CLI
@@ -157,6 +162,11 @@ namespace Assets.Oculus.VR.Editor
 						"The full path to the APK file.");
 					OVRPlatformToolSettings.ApkBuildPath = MakeFileDirectoryField(ApkPathLabel, OVRPlatformToolSettings.ApkBuildPath,
 						"Choose APK File", true, "apk");
+
+					GUIContent DebugSymbolLabel = new GUIContent("Debug Symbols Directory [?]: ",
+						"The full path to the directory containing the app symbols (libil2cpp.sym.so)");
+					OVRPlatformToolSettings.DebugSymbolsDirectory = MakeFileDirectoryField(DebugSymbolLabel, OVRPlatformToolSettings.DebugSymbolsDirectory,
+						"Choose Debug Symbols Directory", false);
 
 					if (OVRPlatformToolSettings.TargetPlatform == TargetPlatform.Quest)
 					{
@@ -406,7 +416,7 @@ namespace Assets.Oculus.VR.Editor
 		static void ExecuteCommand(TargetPlatform targetPlatform)
 		{
 			string dataPath = Application.dataPath;
-			
+
 			// If we already have a copy of the platform util, check if it needs to be updated
 			if (!ranSelfUpdate && File.Exists(dataPath + "/Oculus/VR/Editor/Tools/ovr-platform-util.exe"))
 			{
@@ -594,9 +604,17 @@ namespace Assets.Oculus.VR.Editor
 			ovrPlatUtilProcess.OutputDataReceived += new DataReceivedEventHandler(
 				(s, e) =>
 				{
-					if (e.Data != null && e.Data.Length != 0 && !e.Data.Contains("\u001b"))
+					if (e.Data != null && e.Data.Length != 0)
 					{
-						OVRPlatformTool.log += e.Data + "\n";
+						int index = e.Data.IndexOf("\u001b");
+						if (index >= 0)
+						{
+							OVRPlatformTool.log += e.Data.Substring(0, index) + "\n";
+						}
+						else
+						{
+							OVRPlatformTool.log += e.Data + "\n";
+						}
 					}
 				}
 			);
@@ -705,7 +723,7 @@ namespace Assets.Oculus.VR.Editor
 				}
 
 				// Add Gamepad Emulation
-				if (OVRPlatformToolSettings.RiftGamepadEmulation > GamepadType.OFF && 
+				if (OVRPlatformToolSettings.RiftGamepadEmulation > GamepadType.OFF &&
 					OVRPlatformToolSettings.RiftGamepadEmulation <= GamepadType.LEFT_D_PAD)
 				{
 					command += " --gamepad-emulation ";
@@ -736,6 +754,14 @@ namespace Assets.Oculus.VR.Editor
 				{
 					ValidateTextField(FileValidator, OVRPlatformToolSettings.ObbFilePath, "OBB File Path", ref success);
 					command += " --obb \"" + OVRPlatformToolSettings.ObbFilePath + "\"";
+				}
+
+				// Add Debug Symbols Path
+				if (!string.IsNullOrEmpty(OVRPlatformToolSettings.DebugSymbolsDirectory))
+				{
+					ValidateTextField(DirectoryValidator, OVRPlatformToolSettings.DebugSymbolsDirectory, "Debug Symbols Directory", ref success);
+					command += " --debug-symbols-dir \"" + OVRPlatformToolSettings.DebugSymbolsDirectory + "\"";
+					command += " --debug-symbols-pattern \"*.sym.so\"";
 				}
 
 				if (OVRPlatformToolSettings.TargetPlatform == TargetPlatform.Quest)

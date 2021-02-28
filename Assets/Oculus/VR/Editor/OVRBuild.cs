@@ -54,7 +54,9 @@ partial class OculusBuildApp : EditorWindow
         }
 #if !USING_XR_SDK && !REQUIRES_XR_SDK
         UnityEditorInternal.VR.VREditor.SetVREnabledOnTargetGroup(BuildTargetGroup.Standalone, true);
+#pragma warning disable 618
         PlayerSettings.virtualRealitySupported = true;
+#pragma warning restore 618
 #endif
         AssetDatabase.SaveAssets();
     }
@@ -71,7 +73,9 @@ partial class OculusBuildApp : EditorWindow
 
 #if !USING_XR_SDK && !REQUIRES_XR_SDK
         UnityEditorInternal.VR.VREditor.SetVREnabledOnTargetGroup(BuildTargetGroup.Standalone, true);
+#pragma warning disable 618
         PlayerSettings.virtualRealitySupported = true;
+#pragma warning restore 618
 #endif
         AssetDatabase.SaveAssets();
     }

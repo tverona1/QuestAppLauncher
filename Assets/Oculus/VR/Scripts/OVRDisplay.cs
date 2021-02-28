@@ -161,7 +161,9 @@ public class OVRDisplay
 			currentInputSubsystem.TryRecenter();
 		}
 #elif !REQUIRES_XR_SDK
+#pragma warning disable 618
 		InputTracking.Recenter();
+#pragma warning restore 618
 #endif
 
 		// The current poses are cached for the current frame and won't be updated immediately

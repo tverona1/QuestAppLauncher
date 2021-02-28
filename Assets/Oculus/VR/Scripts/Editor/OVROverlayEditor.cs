@@ -23,7 +23,7 @@ public class OVROverlayEditor : Editor
 	{
 		Custom = 0,
 		Full = 1,
-		Half = 2
+		Half = 2,
 	}
 
 	private bool sourceRectsVisible = false;
@@ -166,7 +166,7 @@ public class OVROverlayEditor : Editor
 			overlay.isProtectedContent = EditorGUILayout.Toggle(new GUIContent("Is Protected Content", "The texture has copy protection, e.g., HDCP"), overlay.isProtectedContent);
 #endif
 		}
-		if (overlay.currentOverlayShape == OVROverlay.OverlayShape.Cylinder || overlay.currentOverlayShape == OVROverlay.OverlayShape.Equirect || overlay.currentOverlayShape == OVROverlay.OverlayShape.Quad)
+		if (overlay.currentOverlayShape == OVROverlay.OverlayShape.Cylinder || overlay.currentOverlayShape == OVROverlay.OverlayShape.Equirect || overlay.currentOverlayShape == OVROverlay.OverlayShape.Quad || overlay.currentOverlayShape == OVROverlay.OverlayShape.Fisheye)
 		{
 
 			EditorGUILayout.Separator();
@@ -413,6 +413,7 @@ public class OVROverlayEditor : Editor
 			case DisplayType.Half:
 				destRectLeft = destRectRight = new Rect(0.25f, 0, 0.5f, 1);
 				break;
+
 			default:
 				destRectLeft = overlay.destRectLeft;
 				destRectRight = overlay.destRectRight;
