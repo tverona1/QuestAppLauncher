@@ -31,6 +31,9 @@ namespace QuestAppLauncher
         // Background
         public const string Background_Default = "default";
 
+        // Environment
+        public const string Environment_None = "none";
+
         /// <summary>
         /// Grid size
         /// </summary>
@@ -71,6 +74,9 @@ namespace QuestAppLauncher
 
         // Background image path
         public string background = Background_Default;
+
+        // Environment path
+        public string environment = Environment_None;
 
         // Github download repos
         public List<DownloadRepo> downloadRepos = new List<DownloadRepo>();

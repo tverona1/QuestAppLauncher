@@ -23,8 +23,10 @@ namespace QuestAppLauncher
         public GameObject show2DToggle;
         public GameObject autoUpdateToggle;
         public GameObject skyBoxButton;
+        public GameObject environmentButton;
         public DownloadStatusIndicator downloadStatusIndicator;
         public SkyboxHandler skyboxHandler;
+        public EnvironmentHandler environmentHandler;
         public TextMeshProUGUI versionText;
 
         public Toggle tabsAutoOff;
@@ -64,6 +66,9 @@ namespace QuestAppLauncher
             // Skybox callback
             this.skyboxHandler.OnSkyboxSelected = OnSkyboxSelected;
 
+            // Environment callback
+            this.environmentHandler.OnEnvironmentSelected = OnEnvironmentSelected;
+
             // Set version text
             this.versionText.text = string.Format("Version: {0}", Application.version);
 
@@ -87,6 +92,9 @@ namespace QuestAppLauncher
 
             // Set skybox button text
             this.skyBoxButton.GetComponentInChildren<TextMeshProUGUI>().text = SkyboxHandler.GetSkyboxNameFromPath(this.config.background);
+
+            // Set environment button text
+            this.environmentButton.GetComponentInChildren<TextMeshProUGUI>().text = EnvironmentHandler.GetEnvironmentNameFromPath(this.config.environment);
 
             // Set auto-update toggle
             this.autoUpdateToggle.GetComponent<Toggle>().SetIsOnWithoutNotify(this.config.autoUpdate);
@@ -157,6 +165,18 @@ namespace QuestAppLauncher
 
         public void OnSkyboxSelected(string skyboxPath)
         {
+            if (!EnvironmentHandler.IsNoneEnvironment(this.config.environment))
+            {
+                // Clear environment if selected
+                this.environmentHandler.ClearEnvironment();
+                SaveEnvironmentSelection(Config.Environment_None);
+            }
+
+            SaveSkyboxSelection(skyboxPath);
+        }
+
+        private void SaveSkyboxSelection(string skyboxPath)
+        {
             // Update text
             this.skyBoxButton.GetComponentInChildren<TextMeshProUGUI>().text = SkyboxHandler.GetSkyboxNameFromPath(skyboxPath);
 
@@ -164,6 +184,36 @@ namespace QuestAppLauncher
             if (!this.config.background.Equals(skyboxPath, StringComparison.OrdinalIgnoreCase))
             {
                 this.config.background = skyboxPath;
+                ConfigPersistence.SaveConfig(this.config);
+            }
+        }
+
+        public void OnEnvironmentSelected(string environmentPath)
+        {
+            // If no environment selected, load up the skybox. Otherwise, clear the skybox
+            if (EnvironmentHandler.IsNoneEnvironment(environmentPath))
+            {
+                this.skyboxHandler.SetSkybox(this.config.background);
+            }
+            else
+            {
+                // Reset skybox selection to default
+                this.skyboxHandler.ClearSkybox();
+                SaveSkyboxSelection(Config.Background_Default);
+            }
+
+            SaveEnvironmentSelection(environmentPath);
+        }
+
+        private void SaveEnvironmentSelection(string environmentPath)
+        {
+            // Update text
+            this.environmentButton.GetComponentInChildren<TextMeshProUGUI>().text = EnvironmentHandler.GetEnvironmentNameFromPath(environmentPath);
+
+            // Save config with new skybox selection
+            if (!this.config.environment.Equals(environmentPath, StringComparison.OrdinalIgnoreCase))
+            {
+                this.config.environment = environmentPath;
                 ConfigPersistence.SaveConfig(this.config);
             }
         }
@@ -195,6 +245,11 @@ namespace QuestAppLauncher
         public void ShowSkyboxList()
         {
             this.skyboxHandler.ShowList();
+        }
+
+        public void ShowEnvironmentList()
+        {
+            this.environmentHandler.ShowList();
         }
 
         private bool HasUsageStatsPermissions()
