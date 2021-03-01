@@ -36,16 +36,13 @@ using UnityEditor;
 using UnityEngine;
 using UnityEngine.Rendering;
 using UnityEditor.Build;
-#if UNITY_2018_1_OR_NEWER
 using UnityEditor.Build.Reporting;
-#endif
 #if UNITY_ANDROID
 using UnityEditor.Android;
 #endif
 
 [InitializeOnLoad]
 public class OVRGradleGeneration
-#if UNITY_2018_2_OR_NEWER
 	: IPreprocessBuildWithReport, IPostprocessBuildWithReport
 #if UNITY_ANDROID
 	, IPostGenerateGradleAndroidProject
@@ -54,7 +51,7 @@ public class OVRGradleGeneration
 	public OVRADBTool adbTool;
 	public Process adbProcess;
 
-	public int callbackOrder { get { return 3; } }
+	public int callbackOrder { get { return 99999; } }
 	static private System.DateTime buildStartTime;
 	static private System.Guid buildGuid;
 
@@ -106,6 +103,32 @@ public class OVRGradleGeneration
 		}
 #endif
 
+#if UNITY_ANDROID
+		bool useOpenXR = OVRPluginUpdater.IsOVRPluginOpenXRActivated();
+#if USING_XR_SDK
+		if (useOpenXR)
+		{
+			UnityEngine.Debug.LogWarning("Oculus Utilities Plugin with OpenXR is being used, which is under experimental status");
+
+			if (PlayerSettings.colorSpace != ColorSpace.Linear)
+			{
+				throw new BuildFailedException("Oculus Utilities Plugin with OpenXR only supports linear lighting. Please set 'Rendering/Color Space' to 'Linear' in Player Settings");
+			}
+		}
+#else
+		if (useOpenXR)
+		{
+			throw new BuildFailedException("Oculus Utilities Plugin with OpenXR only supports XR Plug-in Managmenent with Oculus XR Plugin.");
+		}
+#endif
+#endif
+
+#if UNITY_ANDROID && USING_XR_SDK && !USING_COMPATIBLE_OCULUS_XR_PLUGIN_VERSION
+		if (PlayerSettings.Android.targetArchitectures != AndroidArchitecture.ARM64)
+			throw new BuildFailedException("Your project is using an Oculus XR Plugin version with known issues. Please navigate to the Package Manager and upgrade the Oculus XR Plugin to the latest verified version. When performing the upgrade" +
+				", you must first \"Remove\" the Oculus XR Plugin package, and then \"Install\" the package at the verified version. Be sure to remove, then install, not just upgrade.");
+#endif
+
 		buildStartTime = System.DateTime.Now;
 		buildGuid = System.Guid.NewGuid();
 
@@ -138,24 +161,22 @@ public class OVRGradleGeneration
 		UnityEngine.Debug.Log("OVRGradleGeneration triggered.");
 
 		var targetOculusPlatform = new List<string>();
-		if (OVRDeviceSelector.isTargetDeviceGearVrOrGo)
-		{
-			targetOculusPlatform.Add("geargo");
-		}
-		if (OVRDeviceSelector.isTargetDeviceQuest)
+		if (OVRDeviceSelector.isTargetDeviceQuestFamily)
 		{
 			targetOculusPlatform.Add("quest");
 		}
 		OVRPlugin.AddCustomMetadata("target_oculus_platform", String.Join("_", targetOculusPlatform.ToArray()));
-		UnityEngine.Debug.LogFormat("  GearVR or Go = {0}  Quest = {1}", OVRDeviceSelector.isTargetDeviceGearVrOrGo, OVRDeviceSelector.isTargetDeviceQuest);
+		UnityEngine.Debug.LogFormat("QuestFamily = {0}: Quest = {1}, Quest2 = {2}", 
+			OVRDeviceSelector.isTargetDeviceQuestFamily,
+			OVRDeviceSelector.isTargetDeviceQuest,
+			OVRDeviceSelector.isTargetDeviceQuest2);
 
 #if UNITY_2019_3_OR_NEWER
 		string gradleBuildPath = Path.Combine(path, "../launcher/build.gradle");
 #else
 		string gradleBuildPath = Path.Combine(path, "build.gradle");
 #endif
-		//Enable v2signing for Quest only
-		bool v2SigningEnabled = OVRDeviceSelector.isTargetDeviceQuest && !OVRDeviceSelector.isTargetDeviceGearVrOrGo;
+		bool v2SigningEnabled = true;
 
 		if (File.Exists(gradleBuildPath))
 		{
@@ -213,8 +234,20 @@ public class OVRGradleGeneration
 		{
 			if (projectConfig.enableNSCConfig)
 			{
+				// If no custom xml security path is specified, look for the default location in the integrations package.
+				string securityConfigFile = projectConfig.securityXmlPath;
+				if (string.IsNullOrEmpty(securityConfigFile))
+				{
+					securityConfigFile = GetOculusProjectNetworkSecConfigPath();
+				}
+				else
+				{
+					Uri configUri = new Uri(Path.GetFullPath(securityConfigFile));
+					Uri projectUri = new Uri(Application.dataPath);
+					Uri relativeUri = projectUri.MakeRelativeUri(configUri);
+					securityConfigFile = relativeUri.ToString();
+				}
 
-				string securityConfigFile = GetOculusProjectNetworkSecConfigPath();
 				string xmlDirectory = Path.Combine(path, "src/main/res/xml");
 				try
 				{
@@ -423,8 +456,5 @@ public class OVRGradleGeneration
 			}
 		}
 	}
-#endif
-#else
-{
 #endif
 }

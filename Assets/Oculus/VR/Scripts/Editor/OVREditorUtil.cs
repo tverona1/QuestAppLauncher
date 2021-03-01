@@ -137,4 +137,23 @@ public static class OVREditorUtil {
             modified = true;
         }
     }
+
+	[Conditional("UNITY_EDITOR_WIN"), Conditional("UNITY_STANDALONE_WIN"), Conditional("UNITY_ANDROID")]
+	public static void SetupInputField(Object target, string name, ref string member, ref bool modified)
+	{
+		SetupInputField(target, new GUIContent(name), ref member, ref modified);
+	}
+
+	[Conditional("UNITY_EDITOR_WIN"), Conditional("UNITY_STANDALONE_WIN"), Conditional("UNITY_ANDROID")]
+	public static void SetupInputField(Object target, GUIContent name, ref string member, ref bool modified)
+	{
+		EditorGUI.BeginChangeCheck();
+		string value = EditorGUILayout.TextField(name, member);
+		if (EditorGUI.EndChangeCheck())
+		{
+			Undo.RecordObject(target, "Changed " + name);
+			member = value;
+			modified = true;
+		}
+	}
 }

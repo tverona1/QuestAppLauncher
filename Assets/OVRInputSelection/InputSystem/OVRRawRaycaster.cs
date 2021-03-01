@@ -190,10 +190,8 @@ namespace ControllerSelection
         {
             // Handle selection callbacks. An object is selected if the button selecting it was
             // pressed AND released while hovering over the object.
-            if (isLeft && (activeController & OVRInput.Controller.LTouch) != OVRInput.Controller.LTouch &&
-                (activeController & OVRInput.Controller.LTrackedRemote) != OVRInput.Controller.LTrackedRemote ||
-                !isLeft && (activeController & OVRInput.Controller.RTouch) != OVRInput.Controller.RTouch &&
-                (activeController & OVRInput.Controller.RTrackedRemote) != OVRInput.Controller.RTrackedRemote)
+            if (isLeft && (activeController & OVRInput.Controller.LTouch) != OVRInput.Controller.LTouch ||
+                !isLeft && (activeController & OVRInput.Controller.RTouch) != OVRInput.Controller.RTouch)
             {
                 return;
             }

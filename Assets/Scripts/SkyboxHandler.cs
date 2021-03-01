@@ -230,6 +230,37 @@ namespace QuestAppLauncher
         }
 
         /// <summary>
+        /// Clears the skybox.
+        /// </summary>
+        /// <returns></returns>
+        public void ClearSkybox()
+        {
+            Debug.Log("Clearing skybox");
+
+            if (null == this.defaultSkybox)
+            {
+                // Save off the default skybox
+                this.defaultSkybox = RenderSettings.skybox;
+            }
+
+            // Destroy existing skybox
+            if (null != RenderSettings.skybox && RenderSettings.skybox != this.defaultSkybox)
+            {
+                // Destroy texture
+                var oldTexture = RenderSettings.skybox.GetTexture("_Tex");
+                if (null != oldTexture)
+                {
+                    DestroyImmediate(oldTexture);
+                }
+
+                // Destroy material
+                DestroyImmediate(RenderSettings.skybox);
+            }
+
+            RenderSettings.skybox = null;
+        }
+
+        /// <summary>
         /// Gets cubemap from a 2D texture that represents 6-sided cube as a horizontal cross:
         /// [    ]  [ +y ]  [    ]
         /// [ -x ]  [ +z ]  [ +x ]
@@ -298,14 +329,27 @@ namespace QuestAppLauncher
                 GameObject.Destroy(child.gameObject);
             }
 
+            // Add default entry first
+            CreateEntry(Config.Background_Default, Config.Background_Default);
+
             // Populate list of skyboxes
-            foreach(var skybox in skyboxes.OrderBy(key => key.Key))
+            foreach (var skybox in skyboxes.OrderBy(key => key.Key))
             {
-                var newObj = (GameObject)Instantiate(this.prefabSkyboxEntry, this.contentTransform);
-                var entry = newObj.GetComponent<SkyboxEntry>();
-                entry.text.text = skybox.Key;
-                entry.path = skybox.Value;
+                CreateEntry(skybox.Key, skybox.Value);
             }
+        }
+
+        /// <summary>
+        /// Instantiate SkyboxEntry
+        /// </summary>
+        /// <param name="name"></param>
+        /// <param name="path"></param>
+        private void CreateEntry(string name, string path)
+        {
+            var newObj = (GameObject)Instantiate(this.prefabSkyboxEntry, this.contentTransform);
+            var entry = newObj.GetComponent<SkyboxEntry>();
+            entry.text.text = name;
+            entry.path = path;
         }
 
         /// <summary>
@@ -315,9 +359,6 @@ namespace QuestAppLauncher
         private Dictionary<string, string> EnumerateSkyboxFiles()
         {
             var skyboxes = new Dictionary<string, string>();
-
-            // Add default
-            skyboxes[Config.Background_Default] = Config.Background_Default;
 
             // Enumerate jpg files
             foreach (var filePath in Directory.GetFiles(
@@ -344,19 +385,19 @@ namespace QuestAppLauncher
 
         static private string GetOrCreateSkymapPath()
         {
-            string path = Path.Combine(UnityEngine.Application.persistentDataPath, SkyboxFolder);
+            string path = Path.Combine(AppConfig.persistentDataPath, SkyboxFolder);
             Directory.CreateDirectory(path);
             return path;
         }
 
         static private string MakeRelativeSkymapPath(string path)
         {
-            return path.Substring(UnityEngine.Application.persistentDataPath.Length + 1);
+            return path.Substring(AppConfig.persistentDataPath.Length + 1);
         }
 
         static private string MakeAbsoluteSkymapPath(string path)
         {
-            return Path.Combine(UnityEngine.Application.persistentDataPath, path);
+            return Path.Combine(AppConfig.persistentDataPath, path);
         }
 
         static public bool IsDefaultSkybox(string path)

@@ -42,6 +42,9 @@ namespace QuestAppLauncher
         // SKybox handler
         public SkyboxHandler skyboxHandler;
 
+        // Environment handler
+        public EnvironmentHandler environmentHandler;
+
         // Tab containers
         public GameObject topTabContainer;
         public GameObject leftTabContainer;
@@ -81,6 +84,9 @@ namespace QuestAppLauncher
             // Initialize the core platform
             Core.AsyncInitialize();
 
+            // Initialize app config on main thread
+            AppConfig.Initialize();
+
             // Populate the grid
             await PopulateAsync();
         }
@@ -109,10 +115,17 @@ namespace QuestAppLauncher
             // Load configuration
             var config = ConfigPersistence.LoadConfig();
 
-            // Set skybox
             if (!isRenameMode)
             {
-                this.skyboxHandler.SetSkybox(config.background);
+                // Set environment if selected; otherwise, set the skybox
+                if (!EnvironmentHandler.IsNoneEnvironment(config.environment))
+                {
+                    await this.environmentHandler.SetEnvironment(config.environment);
+                }
+                else
+                {
+                    this.skyboxHandler.SetSkybox(config.background);
+                }
             }
 
             // Process apps in background

@@ -23,6 +23,10 @@ limitations under the License.
 #define USING_XR_SDK
 #endif
 
+#if UNITY_2020_1_OR_NEWER
+#define REQUIRES_XR_SDK
+#endif
+
 using UnityEngine;
 using UnityEditor;
 using UnityEditor.Callbacks;
@@ -51,7 +55,6 @@ class OVREngineConfigurationUpdater
 		Debug.Log("Using required project settings: " + setPrefsForUtilities);
 	}
 	
-#if UNITY_2017_3_OR_NEWER
 	private static readonly string dashSupportEnableConfirmedKey = "Oculus_Utilities_OVREngineConfiguration_DashSupportEnableConfirmed_" + Application.unityVersion + OVRManager.utilitiesVersion;
 	private static bool dashSupportEnableConfirmed
 	{
@@ -65,41 +68,12 @@ class OVREngineConfigurationUpdater
 			PlayerPrefs.SetInt(dashSupportEnableConfirmedKey, value ? 1 : 0);
 		}
 	}
-	
-	private static void DashSupportWarningPrompt()
-	{
-		/// <summary>
-		/// Since Unity 2017.3.0f1 and 2017.3.0f2 have "Dash Support" enabled by default
-		/// We need prompt developers in case they never test their app with dash
-		/// </summary>
-		/// 
-		if (Application.unityVersion == "2017.3.0f1" || Application.unityVersion == "2017.3.0f2")
-		{
-			if (!dashSupportEnableConfirmed)
-			{
-				bool dialogResult = EditorUtility.DisplayDialog("Oculus Dash support", "Your current Unity engine " + Application.unityVersion +
-					" has Oculus Dash Supporting enabled by default. please make sure to test your app with Dash enabled runtime 1.21 or newer," +
-					" Otherwise, you can also turn it off under XR Settings -> Oculus", "Understand", "Learn more ");
 
-				if (!dialogResult)
-				{
-					Application.OpenURL("https://developer.oculus.com/documentation/unity/latest/concepts/unity-lifecycle/");
-				}
-
-				dashSupportEnableConfirmed = true;
-			}
-		}
-	}
-#endif
 
     static OVREngineConfigurationUpdater()
 	{
 		EditorApplication.delayCall += OnDelayCall;
 		EditorApplication.update += OnUpdate;
-
-#if UNITY_2017_3_OR_NEWER
-		DashSupportWarningPrompt();
-#endif
 	}
 
 	static void OnDelayCall()
@@ -113,9 +87,6 @@ class OVREngineConfigurationUpdater
 		OVRPlugin.AddCustomMetadata("build_target", EditorUserBuildSettings.activeBuildTarget.ToString());
 		EnforceAndroidSettings();
 		EnforceInputManagerBindings();
-#if UNITY_ANDROID
-		EnforceOSIG();
-#endif
 	}
 
 	static void OnUpdate()
@@ -124,9 +95,7 @@ class OVREngineConfigurationUpdater
 			return;
 		
 		EnforceBundleId();
-#if !USING_XR_SDK
 		EnforceVRSupport();
-#endif
 		EnforceInstallLocation();
 	}
 
@@ -142,7 +111,10 @@ class OVREngineConfigurationUpdater
 			PlayerSettings.defaultInterfaceOrientation = UIOrientation.LandscapeLeft;
 		}
 
+#if !USING_XR_SDK && !REQUIRES_XR_SDK
+#pragma warning disable 618
 		if (!PlayerSettings.virtualRealitySupported)
+#pragma warning restore 618
 		{
 			// NOTE: This value should not affect the main window surface
 			// when Built-in VR support is enabled.
@@ -158,6 +130,7 @@ class OVREngineConfigurationUpdater
 				QualitySettings.antiAliasing = 1;
 			}
 		}
+#endif
 
 		if (QualitySettings.vSyncCount != 0)
 		{
@@ -169,7 +142,10 @@ class OVREngineConfigurationUpdater
 
 	static void EnforceVRSupport()
 	{
+#if !USING_XR_SDK && !REQUIRES_XR_SDK
+#pragma warning disable 618
 		if (PlayerSettings.virtualRealitySupported)
+#pragma warning restore 618
 			return;
 		
 		var mgrs = GameObject.FindObjectsOfType<OVRManager>();
@@ -178,14 +154,12 @@ class OVREngineConfigurationUpdater
 			if (mgrs [i].isActiveAndEnabled)
 			{
 				Debug.Log ("Enabling Unity VR support");
+#pragma warning disable 618
 				PlayerSettings.virtualRealitySupported = true;
+#pragma warning restore 618
 
 				bool oculusFound = false;
-#if UNITY_2017_2_OR_NEWER
 				foreach (var device in UnityEngine.XR.XRSettings.supportedDevices)
-#else
-				foreach (var device in UnityEngine.VR.VRSettings.supportedDevices)
-#endif
 					oculusFound |= (device == "Oculus");
 
 				if (!oculusFound)
@@ -194,19 +168,28 @@ class OVREngineConfigurationUpdater
 				return;
 			}
 		}
+#endif
 	}
 
 	private static void EnforceBundleId()
 	{
+#if !USING_XR_SDK && !REQUIRES_XR_SDK
+#pragma warning disable 618
 		if (!PlayerSettings.virtualRealitySupported)
+		{
 			return;
-
+		}
+#pragma warning restore 618
+#endif
+		
+#if USING_XR_SDK || !REQUIRES_XR_SDK
 		if (PlayerSettings.applicationIdentifier == "" || PlayerSettings.applicationIdentifier == "com.Company.ProductName")
 		{
 			string defaultBundleId = "com.oculus.UnitySample";
 			Debug.LogWarning("\"" + PlayerSettings.applicationIdentifier + "\" is not a valid bundle identifier. Defaulting to \"" + defaultBundleId + "\".");
 			PlayerSettings.applicationIdentifier = defaultBundleId;
 		}
+#endif
 	}
 
 	private static void EnforceInstallLocation()
@@ -219,14 +202,6 @@ class OVREngineConfigurationUpdater
 	{
 		try
 		{
-			BindAxis(new Axis() { name = "Oculus_GearVR_LThumbstickX",  axis =  0,               });
-			BindAxis(new Axis() { name = "Oculus_GearVR_LThumbstickY",  axis =  1, invert = true });
-			BindAxis(new Axis() { name = "Oculus_GearVR_RThumbstickX",  axis =  2,               });
-			BindAxis(new Axis() { name = "Oculus_GearVR_RThumbstickY",  axis =  3, invert = true });
-			BindAxis(new Axis() { name = "Oculus_GearVR_DpadX",         axis =  4,               });
-			BindAxis(new Axis() { name = "Oculus_GearVR_DpadY",         axis =  5, invert = true });
-			BindAxis(new Axis() { name = "Oculus_GearVR_LIndexTrigger", axis = 12,               });
-			BindAxis(new Axis() { name = "Oculus_GearVR_RIndexTrigger", axis = 11,               });
 			BindAxis(new Axis() { name = "Oculus_CrossPlatform_Button2", positiveButton = "joystick button 0", gravity = 1000f, sensitivity = 1000f, type = 0 });
 			BindAxis(new Axis() { name = "Oculus_CrossPlatform_Button4", positiveButton = "joystick button 2", gravity = 1000f, sensitivity = 1000f, type = 0 });
 			BindAxis(new Axis() { name = "Oculus_CrossPlatform_PrimaryThumbstick", positiveButton = "joystick button 8", gravity = 0f, dead = 0f, sensitivity = 0.1f, type = 0 });
@@ -242,36 +217,8 @@ class OVREngineConfigurationUpdater
 		}
 		catch
 		{
-			Debug.LogError("Failed to apply Oculus GearVR input manager bindings.");
+			Debug.LogError("Failed to apply Oculus input manager bindings.");
 		}
-	}
-
-	private static void EnforceOSIG()
-	{
-		// Don't bug the user in play mode.
-		if (Application.isPlaying)
-			return;
-		
-		// Don't warn if the project may be set up for submission or global signing.
-		if (File.Exists(androidManifestPath))
-			return;
-
-		bool foundPossibleOsig = false;
-		if (Directory.Exists(androidAssetsPath))
-		{
-			var files = Directory.GetFiles(androidAssetsPath);
-			for (int i = 0; i < files.Length; ++i)
-			{
-				if (!files[i].Contains(".txt"))
-				{
-					foundPossibleOsig = true;
-					break;
-				}
-			}
-		}
-
-		if (!foundPossibleOsig)
-			Debug.LogWarning("Missing Gear VR OSIG at " + androidAssetsPath + ". Please see https://dashboard.oculus.com/tools/osig-generator");
 	}
 
 	private class Axis

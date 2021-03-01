@@ -7,9 +7,7 @@ using System.Linq;
 
 using UnityEngine;
 using UnityEditor;
-#if UNITY_2018_1_OR_NEWER
 using UnityEditor.Build.Reporting;
-#endif
 
 public class OVRBundleManager
 {
@@ -27,17 +25,14 @@ public class OVRBundleManager
 
 	private static string projectDefaultAppIdentifier;
 	private static string projectDefaultVersion;
+	private static AndroidArchitecture projectAndroidArchitecture;
 	private static ScriptingImplementation projectScriptImplementation;
-#if UNITY_2018_3_OR_NEWER
 	private static ManagedStrippingLevel projectManagedStrippingLevel;
-#else
-	private static StrippingLevel projectStrippingLevel;
-#endif
 	private static bool projectStripEngineCode;
 
 	public static void BuildDeployTransitionAPK(bool useOptionalTransitionApkPackage)
 	{
-		OVRBundleTool.PrintLog("Building and deploying transition APK  . . . ", true);
+		OVRBundleTool.PrintLog("Building and deploying transition APK  . . .\n", true);
 
 		if (!Directory.Exists(BUNDLE_MANAGER_OUTPUT_PATH))
 		{
@@ -67,7 +62,6 @@ public class OVRBundleManager
 		string apkOutputPath = Path.Combine(BUNDLE_MANAGER_OUTPUT_PATH, "OVRTransition.apk");
 		DateTime apkBuildStart = DateTime.Now;
 
-#if UNITY_2018_1_OR_NEWER
 		var buildPlayerOptions = new BuildPlayerOptions
 		{
 			scenes = buildScenes,
@@ -87,36 +81,36 @@ public class OVRBundleManager
 		{
 			OVRBundleTool.PrintError();
 		}
-#else
-		string error = BuildPipeline.BuildPlayer(buildScenes, apkOutputPath, BuildTarget.Android,
-			BuildOptions.Development | BuildOptions.AutoRunPlayer);
-
-		if (string.IsNullOrEmpty(error))
-		{
-			OVRBundleTool.PrintSuccess();
-		}
-		else
-		{
-			OVRBundleTool.PrintError();
-		}
-#endif
 		OVRPlugin.SendEvent("oculus_bundle_tool", "apk_build_time", (DateTime.Now - apkBuildStart).TotalSeconds.ToString());
 		PostbuildProjectSettingUpdate();
 	}
 
 	private static void PrebuildProjectSettingUpdate()
 	{
-		// Modify application identifier for transition APK
+		// Save existing settings as some modifications can change other settings
 		projectDefaultAppIdentifier = PlayerSettings.GetApplicationIdentifier(BuildTargetGroup.Android);
-		PlayerSettings.SetApplicationIdentifier(BuildTargetGroup.Android, 
+		projectDefaultVersion = PlayerSettings.bundleVersion;
+		projectAndroidArchitecture = PlayerSettings.Android.targetArchitectures;
+		projectScriptImplementation = PlayerSettings.GetScriptingBackend(EditorUserBuildSettings.selectedBuildTargetGroup);
+		projectManagedStrippingLevel = PlayerSettings.GetManagedStrippingLevel(BuildTargetGroup.Android);
+		projectStripEngineCode = PlayerSettings.stripEngineCode;
+
+		// Modify application identifier for transition APK
+		PlayerSettings.SetApplicationIdentifier(BuildTargetGroup.Android,
 			projectDefaultAppIdentifier + GetTransitionApkOptionalIdentifier());
 
 		// Set VersionCode as a unique identifier for transition APK
-		projectDefaultVersion = PlayerSettings.bundleVersion;
 		PlayerSettings.bundleVersion = TRANSITION_APK_VERSION_NAME;
 
+		// Modify Android target architecture as ARM64 does not support Mono.
+		if (projectAndroidArchitecture != AndroidArchitecture.ARMv7)
+		{
+			// Show message in console to make it more clear to developers
+			OVRBundleTool.PrintLog("Build will use ARMv7 as Android architecture.");
+			PlayerSettings.Android.targetArchitectures = AndroidArchitecture.ARMv7;
+		}
+
 		// Modify IL2CPP option as it strips script symbols that are necessary for the scenes at runtime
-		projectScriptImplementation = PlayerSettings.GetScriptingBackend(EditorUserBuildSettings.selectedBuildTargetGroup);
 		if (projectScriptImplementation != ScriptingImplementation.Mono2x)
 		{
 			// Show message in console to make it more clear to developers
@@ -125,25 +119,15 @@ public class OVRBundleManager
 		}
 
 		// Avoid stripping managed code that are necessary for the scenes at runtime
-#if UNITY_2018_3_OR_NEWER
-		projectManagedStrippingLevel = PlayerSettings.GetManagedStrippingLevel(BuildTargetGroup.Android);
 		if (projectManagedStrippingLevel != ManagedStrippingLevel.Disabled)
 		{
 			OVRBundleTool.PrintLog("Build will set Managed Stripping Level to Disabled.");
 			PlayerSettings.SetManagedStrippingLevel(BuildTargetGroup.Android, ManagedStrippingLevel.Disabled);
 		}
-#else
-		projectStrippingLevel = PlayerSettings.strippingLevel;
-		if (projectStrippingLevel != StrippingLevel.Disabled)
-		{
-			OVRBundleTool.PrintLog("Build will set Stripping Level to Disabled.");
-			PlayerSettings.strippingLevel = StrippingLevel.Disabled;
-		}
-#endif
 
-		projectStripEngineCode = PlayerSettings.stripEngineCode;
 		if (projectStripEngineCode)
 		{
+			OVRBundleTool.PrintLog("Build will set Strip Engine Code to Disabled.");
 			PlayerSettings.stripEngineCode = false;
 		}
 	}
@@ -164,21 +148,21 @@ public class OVRBundleManager
 		}
 
 		// Restore managed stripping level
-#if UNITY_2018_3_OR_NEWER
 		if (PlayerSettings.GetManagedStrippingLevel(BuildTargetGroup.Android) != projectManagedStrippingLevel)
 		{
 			PlayerSettings.SetManagedStrippingLevel(BuildTargetGroup.Android, projectManagedStrippingLevel);
 		}
-#else
-		if (PlayerSettings.strippingLevel != projectStrippingLevel)
-		{
-			PlayerSettings.strippingLevel = projectStrippingLevel;
-		}
-#endif
 
+		// Restore Strip Engine Code
 		if (PlayerSettings.stripEngineCode != projectStripEngineCode)
 		{
 			PlayerSettings.stripEngineCode = projectStripEngineCode;
+		}
+
+		// Restore Android Architecture
+		if (PlayerSettings.Android.targetArchitectures != projectAndroidArchitecture)
+		{
+			PlayerSettings.Android.targetArchitectures = projectAndroidArchitecture;
 		}
 	}
 
@@ -208,7 +192,7 @@ public class OVRBundleManager
 	private static void BuildSceneBundles(List<OVRBundleTool.EditorSceneInfo> sceneList)
 	{
 		DateTime totalStart = DateTime.Now;
-		// Keeps track of dependent assets across scenes 
+		// Keeps track of dependent assets across scenes
 		// to ensure each asset is only packaged once in one of the scene bundles.
 		// uniqueAssetInSceneBundle is a map from "asset unique identifier" to the first scene that references the asset.
 		// It supports different assets with same file name as "asset unique identifier" contain full qualified asset file path
@@ -295,9 +279,9 @@ public class OVRBundleManager
 		OVRPlugin.SendEvent("oculus_bundle_tool", "bundle_build_time", bundleBuildTime.ToString());
 	}
 
-	private static void ProcessAssets(string[] assetPaths, 
+	private static void ProcessAssets(string[] assetPaths,
 		string assetParent,
-		ref Dictionary<string, string> uniqueAssetInSceneBundle, 
+		ref Dictionary<string, string> uniqueAssetInSceneBundle,
 		ref Dictionary<string, List<string>> extToAssetList)
 	{
 		foreach (string asset in assetPaths)
@@ -590,6 +574,9 @@ public class OVRBundleManager
 		OVRADBTool adbTool = new OVRADBTool(OVRConfig.Instance.GetAndroidSDKPath());
 		if (adbTool.isReady)
 		{
+			externalSceneCache = EXTERNAL_STORAGE_PATH + "/" + PlayerSettings.GetApplicationIdentifier(BuildTargetGroup.Android)
+				+ GetTransitionApkOptionalIdentifier() + "/cache/scenes";
+
 			bool failure = false;
 			string fileExistsError = "No such file or directory";
 			OVRBundleTool.PrintLog("Deleting device bundles . . . ");
@@ -649,7 +636,7 @@ public class OVRBundleManager
 		if (OVRBundleTool.GetUseOptionalTransitionApkPackage())
 		{
 			// Append .transition to default app package name to optionally allow both
-			// full build apk and transition apk to be installed on device 
+			// full build apk and transition apk to be installed on device
 			transitionApkOptionalIdentifier = ".transition";
 		}
 		else

@@ -31,6 +31,9 @@ namespace QuestAppLauncher
         // Background
         public const string Background_Default = "default";
 
+        // Environment
+        public const string Environment_None = "none";
+
         /// <summary>
         /// Grid size
         /// </summary>
@@ -72,6 +75,9 @@ namespace QuestAppLauncher
         // Background image path
         public string background = Background_Default;
 
+        // Environment path
+        public string environment = Environment_None;
+
         // Github download repos
         public List<DownloadRepo> downloadRepos = new List<DownloadRepo>();
 
@@ -102,7 +108,7 @@ namespace QuestAppLauncher
         /// <returns>Config object</returns>
         static public Config LoadConfig()
         {
-            var configFilePath = Path.Combine(UnityEngine.Application.persistentDataPath, ConfigFileName);
+            var configFilePath = Path.Combine(AppConfig.persistentDataPath, ConfigFileName);
             if (File.Exists(configFilePath))
             {
                 Debug.Log("Found config file: " + configFilePath);
@@ -132,7 +138,7 @@ namespace QuestAppLauncher
         /// <param name="config"></param>
         static public void SaveConfig(Config config)
         {
-            var configFilePath = Path.Combine(UnityEngine.Application.persistentDataPath, ConfigFileName);
+            var configFilePath = Path.Combine(AppConfig.persistentDataPath, ConfigFileName);
             Debug.Log("Saving config file: " + configFilePath);
 
             try

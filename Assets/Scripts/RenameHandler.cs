@@ -90,7 +90,7 @@ namespace QuestAppLauncher
                     using (AndroidJavaClass unity = new AndroidJavaClass("com.unity3d.player.UnityPlayer"))
                     using (AndroidJavaObject currentActivity = unity.GetStatic<AndroidJavaObject>("currentActivity"))
                     {
-                        var renameIconPackFilePath = Path.Combine(UnityEngine.Application.persistentDataPath, AppProcessor.RenameIconPackFileName);
+                        var renameIconPackFilePath = Path.Combine(AppConfig.persistentDataPath, AppProcessor.RenameIconPackFileName);
                         currentActivity.CallStatic("addFileToZip", renameIconPackFilePath, filePath, this.appToRename.packageId + ".jpg");
                     }
                 }
@@ -127,7 +127,7 @@ namespace QuestAppLauncher
         /// <param name="appName">App name</param>
         private void AddToRenameJsonFile(string packageId, string appName)
         {
-            var renameJsonFilePath = Path.Combine(UnityEngine.Application.persistentDataPath, AppProcessor.RenameJsonFileName);
+            var renameJsonFilePath = Path.Combine(AppConfig.persistentDataPath, AppProcessor.RenameJsonFileName);
             Dictionary<string, AppProcessor.JsonAppNamesEntry> jsonAppNames = null;
 
             if (File.Exists(renameJsonFilePath))

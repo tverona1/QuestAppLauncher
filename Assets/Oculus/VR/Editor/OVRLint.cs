@@ -1,12 +1,12 @@
 /************************************************************************************
 Copyright : Copyright (c) Facebook Technologies, LLC and its affiliates. All rights reserved.
 
-Licensed under the Oculus Utilities SDK License Version 1.31 (the "License"); you may not use
+Licensed under the Oculus Master SDK License Version 1.0 (the "License"); you may not use
 the Utilities SDK except in compliance with the License, which is provided at the time of installation
 or download, or which otherwise accompanies this software in either electronic or hard copy form.
 
 You may obtain a copy of the License at
-https://developer.oculus.com/licenses/utilities-1.31
+https://developer.oculus.com/licenses/oculusmastersdk-1.0/
 
 Unless required by applicable law or agreed to in writing, the Utilities SDK distributed
 under the License is distributed on an "AS IS" BASIS, WITHOUT WARRANTIES OR CONDITIONS OF
@@ -15,6 +15,14 @@ permissions and limitations under the License.
 ************************************************************************************/
 
 #if UNITY_EDITOR
+
+#if USING_XR_MANAGEMENT && USING_XR_SDK_OCULUS
+#define USING_XR_SDK
+#endif
+
+#if UNITY_2020_1_OR_NEWER
+#define REQUIRES_XR_SDK
+#endif
 
 using UnityEngine;
 using UnityEditor;
@@ -27,38 +35,38 @@ using Assets.Oculus.VR.Editor;
 ///Scans the project and warns about the following conditions:
 ///Audio sources > 16
 ///Using MSAA levels other than recommended level
-///Excessive pixel lights (>1 on Gear VR; >3 on Rift)
-///Directional Lightmapping Modes (on Gear; use Non-Directional)
+///Excessive pixel lights (>1 on Mobile; >3 on Rift)
+///Directional Lightmapping Modes (on Mobile; use Non-Directional)
 ///Preload audio setting on individual audio clips
 ///Decompressing audio clips on load
 ///Disabling occlusion mesh
 ///Android target API level set to 21 or higher
-///Unity skybox use (on by default, but if you can't see the skybox switching to Color is much faster on Gear)
+///Unity skybox use (on by default, but if you can't see the skybox switching to Color is much faster on Mobile)
 ///Lights marked as "baked" but that were not included in the last bake (and are therefore realtime).
 ///Lack of static batching and dynamic batching settings activated.
-///Full screen image effects (Gear)
+///Full screen image effects (Mobile)
 ///Warn about large textures that are marked as uncompressed.
 ///32-bit depth buffer (use 16)
-///Use of projectors (Gear; can be used carefully but slow enough to warrant a warning)
-///Maybe in the future once quantified: Graphics jobs and IL2CPP on Gear.
+///Use of projectors (Mobile; can be used carefully but slow enough to warrant a warning)
+///Maybe in the future once quantified: Graphics jobs and IL2CPP on Mobile.
 ///Real-time global illumination
-///No texture compression, or non-ASTC texture compression as a global setting (Gear).
+///No texture compression, or non-ASTC texture compression as a global setting (Mobile).
 ///Using deferred rendering
-///Excessive texture resolution after LOD bias (>2k on Gear VR; >4k on Rift)
+///Excessive texture resolution after LOD bias (>2k on Mobile; >4k on Rift)
 ///Not using trilinear or aniso filtering and not generating mipmaps
 ///Excessive render scale (>1.2)
 ///Slow physics settings: Sleep Threshold < 0.005, Default Contact Offset < 0.01, Solver Iteration Count > 6
 ///Shadows on when approaching the geometry or draw call limits
 ///Non-static objects with colliders that are missing rigidbodies on themselves or in the parent chain.
-///No initialization of GPU/CPU throttling settings, or init to dangerous values (-1 or > 3)  (Gear)
+///No initialization of GPU/CPU throttling settings, or init to dangerous values (-1 or > 3)  (Mobile)
 ///Using inefficient effects: SSAO, motion blur, global fog, parallax mapping, etc.
 ///Too many Overlay layers
-///Use of Standard shader or Standard Specular shader on Gear.  More generally, excessive use of multipass shaders (legacy specular, etc).
-///Multiple cameras with clears (on Gear, potential for excessive fill cost)
+///Use of Standard shader or Standard Specular shader on Mobile.  More generally, excessive use of multipass shaders (legacy specular, etc).
+///Multiple cameras with clears (on Mobile, potential for excessive fill cost)
 ///Excessive shader passes (>2)
 ///Material pointers that have been instanced in the editor (esp. if we could determine that the instance has no deltas from the original)
-///Excessive draw calls (>150 on Gear VR; >2000 on Rift)
-///Excessive tris or verts (>100k on Gear VR; >1M on Rift)
+///Excessive draw calls (>150 on Mobile; >2000 on Rift)
+///Excessive tris or verts (>100k on Mobile; >1M on Rift)
 ///Large textures, lots of prefabs in startup scene (for bootstrap optimization)
 ///GPU skinning: testing Android-only, as most Rift devs are GPU-bound.
 /// </summary>
@@ -66,17 +74,14 @@ using Assets.Oculus.VR.Editor;
 public class OVRLint : EditorWindow
 {
 	//TODO: The following require reflection or static analysis.
-	///Use of ONSP reflections (Gear)
-	///Use of LoadLevelAsync / LoadLevelAdditiveAsync (on Gear, this kills frame rate so dramatically it's probably better to just go to black and load synchronously)
+	///Use of ONSP reflections (Mobile)
+	///Use of LoadLevelAsync / LoadLevelAdditiveAsync (on Mobile, this kills frame rate so dramatically it's probably better to just go to black and load synchronously)
 	///Use of Linq in non-editor assemblies (common cause of GCs).  Minor: use of foreach.
 	///Use of Unity WWW (exceptionally high overhead for large file downloads, but acceptable for tiny gets).
 	///Declared but empty Awake/Start/Update/OnCollisionEnter/OnCollisionExit/OnCollisionStay.  Also OnCollision* star methods that declare the Collision  argument but do not reference it (omitting it short-circuits the collision contact calculation).
 
 	private static List<FixRecord> mRecords = new List<FixRecord>();
 	private static List<FixRecord> mRuntimeEditModeRequiredRecords = new List<FixRecord>();
-#if !UNITY_2017_2_OR_NEWER
-	private static bool mWasPlaying = false;
-#endif
 	private Vector2 mScrollPosition;
 
 	[MenuItem("Oculus/Tools/OVR Performance Lint Tool")]
@@ -86,34 +91,13 @@ public class OVRLint : EditorWindow
 		EditorWindow.GetWindow(typeof(OVRLint));
 		OVRPlugin.SendEvent("perf_lint", "activated");
 		OVRLint.RunCheck();
-#if !UNITY_2017_2_OR_NEWER
-		mWasPlaying = EditorApplication.isPlaying;
-#endif
 	}
 
 	OVRLint()
 	{
-#if UNITY_2017_2_OR_NEWER
 		EditorApplication.playModeStateChanged += HandlePlayModeState;
-#else
-		EditorApplication.playmodeStateChanged += () =>
-		{
-			// When Unity starts playing, it would also trigger play mode changed event with isPlaying == false
-			// Fixes should only be applied when it was transitioned from playing mode
-			if (!EditorApplication.isPlaying && mWasPlaying)
-			{
-				ApplyEditModeRequiredFix();
-				mWasPlaying = false;
-			}
-			else
-			{
-				mWasPlaying = true;
-			}
-		};
-#endif
 	}
 
-#if UNITY_2017_2_OR_NEWER
 	private static void HandlePlayModeState(PlayModeStateChange state)
 	{
 		if (state == PlayModeStateChange.EnteredEditMode)
@@ -121,7 +105,6 @@ public class OVRLint : EditorWindow
 			ApplyEditModeRequiredFix();
 		}
 	}
-#endif
 
 	private static void ApplyEditModeRequiredFix()
 	{
@@ -223,8 +206,10 @@ public class OVRLint : EditorWindow
 			{
 				GUILayout.Label(record.message);
 			}
+
 			if (record.buttonNames != null)
 			{
+				EditorGUILayout.BeginVertical(GUILayout.Width(200.0f));
 				for (int y = 0; y < record.buttonNames.Length; y++)
 				{
 					if (GUILayout.Button(record.buttonNames[y], EditorStyles.toolbarButton, GUILayout.Width(200)))
@@ -254,7 +239,7 @@ public class OVRLint : EditorWindow
 						}
 					}
 				}
-
+				EditorGUILayout.EndVertical();
 			}
 			GUI.enabled = true;
 			EditorGUILayout.EndHorizontal();
@@ -336,20 +321,12 @@ public class OVRLint : EditorWindow
 		}
 #endif
 
-#if UNITY_2017_2_OR_NEWER
 		if ((!PlayerSettings.MTRendering || !PlayerSettings.GetMobileMTRendering(BuildTargetGroup.Android)))
-#else
-		if ((!PlayerSettings.MTRendering || !PlayerSettings.mobileMTRendering))
-#endif
 		{
 			AddFix("Optimize MT Rendering", "For CPU performance, please enable multithreaded rendering.", delegate (UnityEngine.Object obj, bool last, int selected)
 			{
-#if UNITY_2017_2_OR_NEWER
 				PlayerSettings.SetMobileMTRendering(BuildTargetGroup.Standalone, true);
 				PlayerSettings.SetMobileMTRendering(BuildTargetGroup.Android, true);
-#else
-				PlayerSettings.MTRendering = PlayerSettings.mobileMTRendering = true;
-#endif
 			}, null, false, "Fix");
 		}
 
@@ -363,7 +340,8 @@ public class OVRLint : EditorWindow
 		}
 #endif
 
-#if UNITY_2017_3_OR_NEWER && !UNITY_ANDROID
+#if !UNITY_ANDROID && !USING_XR_SDK && !REQUIRES_XR_SDK
+#pragma warning disable 618
 		if (!PlayerSettings.VROculus.dashSupport)
 		{
 			AddFix("Enable Dash Integration", "We recommend to enable Dash Integration for better user experience.", delegate (UnityEngine.Object obj, bool last, int selected)
@@ -379,6 +357,7 @@ public class OVRLint : EditorWindow
 				PlayerSettings.VROculus.sharedDepthBuffer = true;
 			}, null, false, "Fix");
 		}
+#pragma warning restore 618
 #endif
 
 		BuildTargetGroup target = EditorUserBuildSettings.selectedBuildTargetGroup;
@@ -422,11 +401,7 @@ public class OVRLint : EditorWindow
 		var lights = GameObject.FindObjectsOfType<Light>();
 		for (int i = 0; i < lights.Length; ++i)
 		{
-#if UNITY_2017_3_OR_NEWER
 			if (lights [i].type != LightType.Directional && !lights [i].bakingOutput.isBaked && IsLightBaked(lights[i]))
-#else
-			if (lights[i].type != LightType.Directional && !lights[i].isBaked && IsLightBaked(lights[i]))
-#endif
 			{
 				AddFix("Unbaked Lights", "The following lights in the scene are marked as Baked, but they don't have up to date lightmap data. Generate the lightmap data, or set it to auto-generate, in Window->Lighting->Settings.", null, lights[i], false, null);
 			}
@@ -625,19 +600,11 @@ public class OVRLint : EditorWindow
 			}, null, true, "Stop Play and Fix");
 		}
 
-#if UNITY_2017_2_OR_NEWER
 		if (UnityEngine.XR.XRSettings.eyeTextureResolutionScale > 1.5)
-#else
-		if (UnityEngine.VR.VRSettings.renderScale > 1.5)
-#endif
 		{
 			AddFix("Optimize Render Scale", "Render scale above 1.5 is extremely expensive on the GPU, with little if any positive visual benefit.", delegate (UnityEngine.Object obj, bool last, int selected)
 			{
-#if UNITY_2017_2_OR_NEWER
 				UnityEngine.XR.XRSettings.eyeTextureResolutionScale = 1.5f;
-#else
-				UnityEngine.VR.VRSettings.renderScale = 1.5f;
-#endif
 			}, null, false, "Fix");
 		}
 	}
@@ -645,22 +612,18 @@ public class OVRLint : EditorWindow
 #if UNITY_ANDROID
 	static void CheckStaticAndroidIssues()
 	{
-		if (OVRDeviceSelector.isTargetDeviceQuest && PlayerSettings.Android.targetArchitectures != AndroidArchitecture.ARM64)
+		if (OVRDeviceSelector.isTargetDeviceQuestFamily && PlayerSettings.Android.targetArchitectures != AndroidArchitecture.ARM64)
 		{
-				// Quest store is only accepting 64-bit apps as of November 25th 2019
-				AddFix("Set Target Architecture to ARM64", "32-bit Quest apps are no longer being accepted on the Oculus Store.",
-						delegate (UnityEngine.Object obj, bool last, int selected)
-						{
-								PlayerSettings.Android.targetArchitectures = AndroidArchitecture.ARM64;
-						}, null, false, "Fix");
+			// Quest store is only accepting 64-bit apps as of November 25th 2019
+			AddFix("Set Target Architecture to ARM64", "32-bit Quest apps are no longer being accepted on the Oculus Store.",
+				delegate (UnityEngine.Object obj, bool last, int selected)
+				{
+					PlayerSettings.Android.targetArchitectures = AndroidArchitecture.ARM64;
+				}, null, false, "Fix");
 		}
 
-		// Check that the minSDKVersion meets requirement, 21 for Gear and Go, 23 for Quest
-		AndroidSdkVersions recommendedAndroidMinSdkVersion = AndroidSdkVersions.AndroidApiLevel21;
-		if (OVRDeviceSelector.isTargetDeviceQuest)
-		{
-			recommendedAndroidMinSdkVersion = AndroidSdkVersions.AndroidApiLevel23;
-		}
+		// Check that the minSDKVersion meets requirement, 23 for Quest
+		AndroidSdkVersions recommendedAndroidMinSdkVersion = AndroidSdkVersions.AndroidApiLevel23;
 		if ((int)PlayerSettings.Android.minSdkVersion < (int)recommendedAndroidMinSdkVersion)
 		{
 			AddFix("Set Min Android API Level", "Please require at least API level " + (int)recommendedAndroidMinSdkVersion, delegate (UnityEngine.Object obj, bool last, int selected)
@@ -672,7 +635,7 @@ public class OVRLint : EditorWindow
 		// Check that compileSDKVersion meets minimal version 26 as required for Quest's headtracking feature
 		// Unity Sets compileSDKVersion in Gradle as the value used in targetSdkVersion
 		AndroidSdkVersions requiredAndroidTargetSdkVersion = AndroidSdkVersions.AndroidApiLevel26;
-		if (OVRDeviceSelector.isTargetDeviceQuest &&
+		if (OVRDeviceSelector.isTargetDeviceQuestFamily &&
 			(int)PlayerSettings.Android.targetSdkVersion < (int)requiredAndroidTargetSdkVersion)
 		{
 			AddFix("Set Android Target SDK Level", "Oculus Quest apps require at least target API level " +
@@ -692,16 +655,9 @@ public class OVRLint : EditorWindow
 				}, null, false, "Fix");
 		}
 
-		if (OVRPlatformToolSettings.TargetPlatform == OVRPlatformTool.TargetPlatform.OculusGoGearVR &&
-			!OVRPlugin.supportsGearVR)
-		{
-			AddFix("Gear VR Not Supported", "Target Oculus Platform Gear VR is no longer supported after Oculus Utilities v1.41.0. " +
-				"This app will only target Oculus Go.", null, null, false);
-		}
-
 		if (!PlayerSettings.gpuSkinning)
 		{
-			AddFix("Optimize GPU Skinning", "If you are CPU-bound, consider using GPU skinning.", 
+			AddFix("Optimize GPU Skinning", "If you are CPU-bound, consider using GPU skinning.",
 				delegate (UnityEngine.Object obj, bool last, int selected)
 			{
 				PlayerSettings.gpuSkinning = true;

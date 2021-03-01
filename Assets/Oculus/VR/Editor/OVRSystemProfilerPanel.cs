@@ -663,21 +663,16 @@ public class OVRSystemProfilerPanel : EditorWindow {
 
 		tcpClient.Connect(remoteListeningPort);
 
-#if UNITY_2017_1_OR_NEWER
 		EditorApplication.playModeStateChanged += OnApplicationPlayModeStateChanged;
-#endif
 	}
 
 	void DisconnectPerfMetricsTcpServer()
 	{
-#if UNITY_2017_1_OR_NEWER
 		EditorApplication.playModeStateChanged -= OnApplicationPlayModeStateChanged;
-#endif
 
 		tcpClient.Disconnect();
 	}
 
-#if UNITY_2017_1_OR_NEWER
 	void OnApplicationPlayModeStateChanged(PlayModeStateChange change)
 	{
 		Debug.LogFormat("[OVRSystemPerfMetricsWindow] OnApplicationPlayModeStateChanged {0}", change.ToString());
@@ -686,6 +681,5 @@ public class OVRSystemProfilerPanel : EditorWindow {
 			tcpClient.Disconnect();
 		}
 	}
-#endif
 
 }
