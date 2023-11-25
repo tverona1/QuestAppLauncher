@@ -78,7 +78,7 @@ namespace QuestAppLauncher
             // Set high texture resolution scale to minimize aliasing
             XRSettings.eyeTextureResolutionScale = 2.0f;
 
-            // Initialize the core platform
+            // Initialize the core platform, oculus related
             Core.AsyncInitialize();
 
             // Populate the grid

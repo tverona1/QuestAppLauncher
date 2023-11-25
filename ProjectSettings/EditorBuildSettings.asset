@@ -6,6 +6,9 @@ EditorBuildSettings:
   serializedVersion: 2
   m_Scenes:
   - enabled: 1
+    path: Assets/Scenes/DeviceInfo.unity
+    guid: 7f98697fddc792744b7429f27d63d4ac
+  - enabled: 1
     path: Assets/Scenes/QuestAppLauncher.unity
     guid: dca0720aceedefc46b483f0277b30d6a
   m_configObjects:
